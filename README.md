@@ -4,6 +4,8 @@
 ## Requirements
 - cmake, make
 - c++ compiler
+- docker
+
 
 
 ### Development-only requirements
@@ -23,7 +25,8 @@ mkdir build
 cd build
 cmake ..
 make
-```  
+```
+
 3. Now a directory 2024-group-22 will be created in your current directory
 4. Go to the project directory (cd 2024-group-22)
 5. Create an out-of-tree build directory not to commit build files to git
@@ -31,6 +34,15 @@ make
 7. Run cmake .. to use the file in the parent directory to generate the Makefile
 8. Run make to build the project
 
+9.Build the Docker Image
+Next, you'll build the Docker image. Open a terminal, navigate to your project directory (where the Dockerfile is located), and run:
+
+docker build -t group-22-project .
+
+10.Run Your Project Inside a Docker Container
+After the image is built, you can start a container based on your new image:
+
+docker run -it group-22-project
 
 
 
