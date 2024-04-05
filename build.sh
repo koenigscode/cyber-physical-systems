@@ -1,2 +1,2 @@
-#!/bin/bash
+#!/bin/sh
 docker build -t group-22/main:latest -f Dockerfile .
