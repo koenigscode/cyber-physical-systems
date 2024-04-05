@@ -32,8 +32,11 @@
 
 # How do you plan to ensure responsible use of LLMs in your project and how do you transparently and traceably document the use of LLMs? 
 - Document usage of LLMs
-    - Generated code: document usage in the source code file
-    - Generated text: document usage in the text file (Google Docs, Markdown)
+    - LLMs cannot be used for the text of the final report
+    - We are mostly using LLMs for code and code comments generation, test case generation and debugging
+    - Generated code: document usage in the source code file (now we can refer to the screenshot/screen recording/text file name in the llm-dialogues folder)
+    - Generated text: document usage in the text file (Google Docs, Markdown) (also refer to the file name in the llm-dialogues folder)
+    - The dialogue with the LLM must be stored in the repo in the /llm-dialogues folder as a screenshot/screen recording or a text file
     - Check generated content, don't simply trust it; and make sure you understand the generated code
     - Document which model has been used
     - If in doubt, consult several LLMs and choose the best result, or compare with online sources
