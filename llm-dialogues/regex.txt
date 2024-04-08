@@ -1,0 +1,26 @@
+
+ollama run codellama:13b
+
+>>> Regex to match semantic versioning
+
+Here's a regular expression that matches a semantic version string:
+```
+^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}(?:-(?:alpha|beta|rc)\.[0-9]+)?$
+```
+Explanation of the regex:
+
+* `^` asserts position at start of a line
+* `[0-9]{1,3}` matches any number between 0 and 3 digits long (i.e., major version)
+* `\.` matches a dot character
+* `[0-9]{1,3}` matches any number between 0 and 3 digits long (i.e., minor version)
+* `\.` matches a dot character
+* `[0-9]{1,3}` matches any number between 0 and 3 digits long (i.e., patch version)
+* `(?:-(?:alpha|beta|rc)\.[0-9]+)?` is an optional non-capturing group that matches one of the following:
+	+ `-` followed by either "alpha", "beta" or "rc", followed by a dot character, followed by any number of digits (i.e., pre-re
+
+pre-release version)
+* `$` asserts position at end of a line
+
+This regular expression will match strings that follow the semantic versioning format, which consists of three numbers 
+separated by dots and an optional pre-release identifier. The pre-release identifier is made up of a hyphen followed by one of 
+"alpha", "beta" or "rc" followed by a dot^[ character and any number of digits.
