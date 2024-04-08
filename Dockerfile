@@ -6,9 +6,8 @@ FROM ubuntu:22.04 as builder
 
 RUN apt-get update -y && \
     apt-get upgrade -y && \
-    apt-get dist-upgrade -y
-
-RUN apt-get install -y --no-install-recommends \
+    apt-get dist-upgrade -y && \
+    apt-get install -y --no-install-recommends \
     cmake \
     build-essential \
     ca-certificates \
