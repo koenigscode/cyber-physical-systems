@@ -9,8 +9,10 @@ RUN apt-get update -y && \
     apt-get dist-upgrade -y && \
     apt-get install -y --no-install-recommends \
     cmake \
+    lcov \
     build-essential \
     ca-certificates \
+    python3 python3-distutils \
     wget
 
 ADD . /opt/sources
@@ -27,8 +29,8 @@ RUN cd /opt/sources && \
 
 # Build using cmake + make
 RUN cd build && \ 
-    cmake -D CMAKE_BUILD_TYPE=Release .. && \
-    make && make test && cp helloworld /tmp
+    cmake -DCMAKE_BUILD_TYPE=Release -DENABLE_COVERAGE=true .. && \
+    make && make test && make coverage && lcov --list coverage.info > lcov.out && python3 ../lcov_cobertura.py coverage.info && cp helloworld coverage/index.html coverage.info lcov.out coverage.xml /tmp
 
 ##################################################
 # Section 2: Bundle the application.
@@ -41,4 +43,8 @@ RUN apt-get update -y && \
 
 WORKDIR /opt
 COPY --from=builder /tmp/helloworld .
+COPY --from=builder /tmp/index.html .
+COPY --from=builder /tmp/coverage.info .
+COPY --from=builder /tmp/coverage.xml .
+COPY --from=builder /tmp/lcov.out .
 ENTRYPOINT ["/opt/helloworld"]
