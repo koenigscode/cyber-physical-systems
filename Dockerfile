@@ -47,4 +47,8 @@ COPY --from=builder /tmp/index.html .
 COPY --from=builder /tmp/coverage.info .
 COPY --from=builder /tmp/coverage.xml .
 COPY --from=builder /tmp/lcov.out .
-ENTRYPOINT ["/opt/helloworld"]
+ENTRYPOINT ["/bin/sh"]
+
+FROM scratch as copytohost
+COPY --from=builder /tmp/coverage.xml .
+
