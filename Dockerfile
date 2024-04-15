@@ -34,6 +34,10 @@ RUN cd build && \
 cmake -DCMAKE_BUILD_TYPE=Release .. && \
     make && make test && make coverage && cp helloworld coverage.xml /tmp
 
+
+FROM scratch as copytohost
+COPY --from=builder /tmp/coverage.xml .
+
 ##################################################
 # Section 2: Bundle the application.
 FROM ubuntu:22.04 as runner
@@ -47,6 +51,3 @@ WORKDIR /opt
 COPY --from=builder /tmp/helloworld .
 COPY --from=builder /tmp/coverage.xml .
 ENTRYPOINT ["/bin/sh"]
-
-FROM scratch as copytohost
-COPY --from=builder /tmp/coverage.xml .

@@ -17,5 +17,7 @@ find_program(GCOVR gcovr REQUIRED)
 # add coverage target
 add_custom_target(coverage
   COMMAND ${CMAKE_MAKE_PROGRAM} test
-  COMMAND  ${GCOVR} -r .. --xml-pretty -e ".*\.hpp" -e ".*Test.*" --exclude-unreachable-branches --print-summary -o coverage.xml   
+  COMMAND ${GCOVR} -r .. --xml-pretty -e ".*\.hpp" -e ".*Test.*" --exclude-unreachable-branches -o coverage.xml
+  COMMAND ${GCOVR} -r .. -e ".*\.hpp" -e ".*Test.*" --exclude-unreachable-branches
+
   WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
