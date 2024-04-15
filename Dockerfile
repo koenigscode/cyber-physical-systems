@@ -50,4 +50,4 @@ RUN apt-get update -y && \
 WORKDIR /opt
 COPY --from=builder /tmp/helloworld .
 COPY --from=builder /tmp/coverage.xml .
-ENTRYPOINT ["/bin/sh"]
+ENTRYPOINT ["/opt/helloworld"]
