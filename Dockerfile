@@ -4,14 +4,18 @@
 # Section 1: Build the application
 FROM ubuntu:22.04 as builder
 
+ENV DEBIAN_FRONTEND=noninteractive
+
 RUN apt-get update -y && \
     apt-get upgrade -y && \
     apt-get dist-upgrade -y && \
     apt-get install -y --no-install-recommends \
-    cmake \
-    build-essential \
-    ca-certificates \
-    wget
+        cmake \
+        gcovr \
+        build-essential \
+        ca-certificates \
+        python3 python3-distutils \
+        wget
 
 ADD . /opt/sources
 WORKDIR /opt/sources
@@ -27,12 +31,16 @@ RUN cd /opt/sources && \
 
 # Build using cmake + make
 RUN cd build && \ 
-    cmake -D CMAKE_BUILD_TYPE=Release .. && \
-    make && make test && cp helloworld /tmp
+cmake -DCMAKE_BUILD_TYPE=Release .. && \
+    make && make test && make coverage && cp helloworld coverage.xml /tmp
+
+
+FROM scratch as copytohost
+COPY --from=builder /tmp/coverage.xml .
 
 ##################################################
 # Section 2: Bundle the application.
-FROM ubuntu:22.04
+FROM ubuntu:22.04 as runner
 MAINTAINER Christian Berger christian.berger@gu.se
 
 RUN apt-get update -y && \
@@ -41,4 +49,5 @@ RUN apt-get update -y && \
 
 WORKDIR /opt
 COPY --from=builder /tmp/helloworld .
+COPY --from=builder /tmp/coverage.xml .
 ENTRYPOINT ["/opt/helloworld"]
