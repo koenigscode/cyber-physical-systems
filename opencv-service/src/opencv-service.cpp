@@ -15,135 +15,171 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-// Include the single-file, header-only middleware libcluon to create high-performance microservices
+// Include the single-file, header-only middleware libcluon to create
+// high-performance microservices
 #include "cluon-complete.hpp"
-// Include the OpenDLV Standard Message Set that contains messages that are usually exchanged for automotive or robotic applications 
+// Include the OpenDLV Standard Message Set that contains messages that are
+// usually exchanged for automotive or robotic applications
 #include "opendlv-standard-message-set.hpp"
 
 // Include the GUI and image processing header files from OpenCV
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 
-#include <mutex>
 #include <iostream>
+#include <mutex>
 
 // dectecting and drawing conical object
-void detectAndDrawCones(cv::Mat &frame, const cv::Scalar &lowerColor, const cv::Scalar &upperColor, const cv::Scalar &drawColor) {
-    // convert to HSV color empty
-    cv::Mat hsv;
-    cv::cvtColor(frame, hsv, cv::COLOR_BGR2HSV);
+void detectAndDrawCones(cv::Mat &frame, const cv::Scalar &lowerColor,
+                        const cv::Scalar &upperColor,
+                        const cv::Scalar &drawColor) {
+  // convert to HSV color empty
+  cv::Mat hsv;
+  cv::cvtColor(frame, hsv, cv::COLOR_BGR2HSV);
 
-    // create the color mask
-    cv::Mat mask;
-    cv::inRange(hsv, lowerColor, upperColor, mask);
+  // create the color mask
+  cv::Mat mask;
+  cv::inRange(hsv, lowerColor, upperColor, mask);
 
-    // find contours in the mask
-    std::vector<std::vector<cv::Point>> contours;
-    cv::findContours(mask, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
+  // find contours in the mask
+  std::vector<std::vector<cv::Point>> contours;
+  cv::findContours(mask, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
 
-    // detecting and drawing conical objects
-    for (const auto &contour : contours) {
-        // approximate contour
-        std::vector<cv::Point> approx;
-        cv::approxPolyDP(contour, approx, cv::arcLength(contour, true) * 0.02, true);
+  // detecting and drawing conical objects
+  for (const auto &contour : contours) {
+    // approximate contour
+    std::vector<cv::Point> approx;
+    cv::approxPolyDP(contour, approx, cv::arcLength(contour, true) * 0.02,
+                     true);
 
-        // computes the bounding box of the contour
-        cv::Rect boundRect = cv::boundingRect(contour);
+    // computes the bounding box of the contour
+    cv::Rect boundRect = cv::boundingRect(contour);
 
-        // drawing the bounding box
-        cv::rectangle(frame, boundRect.tl(), boundRect.br(), drawColor, 2);
-    }
+    // drawing the bounding box
+    cv::rectangle(frame, boundRect.tl(), boundRect.br(), drawColor, 2);
+  }
 }
 
 int32_t main(int32_t argc, char **argv) {
-    int32_t retCode{1};
-    // Parse the command line parameters as we require the user to specify some mandatory information on startup.
-    auto commandlineArguments = cluon::getCommandlineArguments(argc, argv);
-    if ( (0 == commandlineArguments.count("cid")) ||
-         (0 == commandlineArguments.count("name")) ||
-         (0 == commandlineArguments.count("width")) ||
-         (0 == commandlineArguments.count("height")) ) {
-        std::cerr << argv[0] << " attaches to a shared memory area containing an ARGB image." << std::endl;
-        std::cerr << "Usage:   " << argv[0] << " --cid=<OD4 session> --name=<name of shared memory area> [--verbose]" << std::endl;
-        std::cerr << "         --cid:    CID of the OD4Session to send and receive messages" << std::endl;
-        std::cerr << "         --name:   name of the shared memory area to attach" << std::endl;
-        std::cerr << "         --width:  width of the frame" << std::endl;
-        std::cerr << "         --height: height of the frame" << std::endl;
-        std::cerr << "Example: " << argv[0] << " --cid=253 --name=img --width=640 --height=480 --verbose" << std::endl;
-    }
-    else {
-        // Extract the values from the command line parameters
-        const std::string NAME{commandlineArguments["name"]};
-        const uint32_t WIDTH{static_cast<uint32_t>(std::stoi(commandlineArguments["width"]))};
-        const uint32_t HEIGHT{static_cast<uint32_t>(std::stoi(commandlineArguments["height"]))};
-        const bool VERBOSE{commandlineArguments.count("verbose") != 0};
+  int32_t retCode{1};
+  // Parse the command line parameters as we require the user to specify some
+  // mandatory information on startup.
+  auto commandlineArguments = cluon::getCommandlineArguments(argc, argv);
+  if ((0 == commandlineArguments.count("cid")) ||
+      (0 == commandlineArguments.count("name")) ||
+      (0 == commandlineArguments.count("width")) ||
+      (0 == commandlineArguments.count("height"))) {
+    std::cerr << argv[0]
+              << " attaches to a shared memory area containing an ARGB image."
+              << std::endl;
+    std::cerr << "Usage:   " << argv[0]
+              << " --cid=<OD4 session> --name=<name of shared memory area> "
+                 "[--verbose]"
+              << std::endl;
+    std::cerr << "         --cid:    CID of the OD4Session to send and receive "
+                 "messages"
+              << std::endl;
+    std::cerr << "         --name:   name of the shared memory area to attach"
+              << std::endl;
+    std::cerr << "         --width:  width of the frame" << std::endl;
+    std::cerr << "         --height: height of the frame" << std::endl;
+    std::cerr << "Example: " << argv[0]
+              << " --cid=253 --name=img --width=640 --height=480 --verbose"
+              << std::endl;
+  } else {
+    // Extract the values from the command line parameters
+    const std::string NAME{commandlineArguments["name"]};
+    const uint32_t WIDTH{
+        static_cast<uint32_t>(std::stoi(commandlineArguments["width"]))};
+    const uint32_t HEIGHT{
+        static_cast<uint32_t>(std::stoi(commandlineArguments["height"]))};
+    const bool VERBOSE{commandlineArguments.count("verbose") != 0};
 
-         // define the color threshould here
-        const cv::Scalar lowerYellow(20, 100, 100), upperYellow(30, 255, 255);
-        const cv::Scalar lowerBlue(100, 150, 50), upperBlue(140, 255, 150); 
+    // define the color threshould here
+    const cv::Scalar lowerYellow(20, 100, 100), upperYellow(30, 255, 255);
+    const cv::Scalar lowerBlue(100, 150, 50), upperBlue(140, 255, 150);
 
-        // Attach to the shared memory.
-        std::unique_ptr<cluon::SharedMemory> sharedMemory{new cluon::SharedMemory{NAME}};
-        if (sharedMemory && sharedMemory->valid()) {
-            std::clog << argv[0] << ": Attached to shared memory '" << sharedMemory->name() << " (" << sharedMemory->size() << " bytes)." << std::endl;
+    // Attach to the shared memory.
+    std::unique_ptr<cluon::SharedMemory> sharedMemory{
+        new cluon::SharedMemory{NAME}};
+    if (sharedMemory && sharedMemory->valid()) {
+      std::clog << argv[0] << ": Attached to shared memory '"
+                << sharedMemory->name() << " (" << sharedMemory->size()
+                << " bytes)." << std::endl;
 
-            // Interface to a running OpenDaVINCI session where network messages are exchanged.
-            // The instance od4 allows you to send and receive messages.
-            cluon::OD4Session od4{static_cast<uint16_t>(std::stoi(commandlineArguments["cid"]))};
+      // Interface to a running OpenDaVINCI session where network messages are
+      // exchanged. The instance od4 allows you to send and receive messages.
+      cluon::OD4Session od4{
+          static_cast<uint16_t>(std::stoi(commandlineArguments["cid"]))};
 
-            opendlv::proxy::GroundSteeringRequest gsr;
-            std::mutex gsrMutex;
-            auto onGroundSteeringRequest = [&gsr, &gsrMutex](cluon::data::Envelope &&env){
-                // The envelope data structure provide further details, such as sampleTimePoint as shown in this test case:
-                // https://github.com/chrberger/libcluon/blob/master/libcluon/testsuites/TestEnvelopeConverter.cpp#L31-L40
-                std::lock_guard<std::mutex> lck(gsrMutex);
-                gsr = cluon::extractMessage<opendlv::proxy::GroundSteeringRequest>(std::move(env));
-                std::cout << "lambda: groundSteering = " << gsr.groundSteering() << std::endl;
-            };
+      opendlv::proxy::GroundSteeringRequest gsr;
+      std::mutex gsrMutex;
+      auto onGroundSteeringRequest = [&gsr,
+                                      &gsrMutex](cluon::data::Envelope &&env) {
+        // The envelope data structure provide further details, such as
+        // sampleTimePoint as shown in this test case:
+        // https://github.com/chrberger/libcluon/blob/master/libcluon/testsuites/TestEnvelopeConverter.cpp#L31-L40
+        std::lock_guard<std::mutex> lck(gsrMutex);
+        gsr = cluon::extractMessage<opendlv::proxy::GroundSteeringRequest>(
+            std::move(env));
+        std::cout << "lambda: groundSteering = " << gsr.groundSteering()
+                  << std::endl;
+      };
 
-            od4.dataTrigger(opendlv::proxy::GroundSteeringRequest::ID(), onGroundSteeringRequest);
+      od4.dataTrigger(opendlv::proxy::GroundSteeringRequest::ID(),
+                      onGroundSteeringRequest);
 
-            // Endless loop; end the program by pressing Ctrl-C.
-            while (od4.isRunning()) {
-                // OpenCV data structure to hold an image.
-                cv::Mat img;
+      // Endless loop; end the program by pressing Ctrl-C.
+      while (od4.isRunning()) {
+        // OpenCV data structure to hold an image.
+        cv::Mat fullImg;
+        cv::Mat img;
 
-                // Wait for a notification of a new frame.
-                sharedMemory->wait();
+        // Wait for a notification of a new frame.
+        sharedMemory->wait();
 
-                // Lock the shared memory.
-                sharedMemory->lock();
-                {
-                    // Copy the pixels from the shared memory into our own data structure.
-                    cv::Mat wrapped(HEIGHT, WIDTH, CV_8UC4, sharedMemory->data());
-                    img = wrapped.clone();
-                }
-                // TODO: Here, you can add some code to check the sampleTimePoint when the current frame was captured.
-                sharedMemory->unlock();
-
-                 // yellow cone-shaped bojects are detected and drawn
-                detectAndDrawCones(img, lowerYellow, upperYellow, cv::Scalar(0, 255, 255)); // use the yellow color drawn
-                // detect and draw blue cone-shaped objects
-                detectAndDrawCones(img, lowerBlue, upperBlue, cv::Scalar(255, 0, 0)); // use the bule color to drawn
-
-                // TODO: Do something with the frame.
-                // Example: Draw a red rectangle and display image.
-                cv::rectangle(img, cv::Point(50, 50), cv::Point(100, 100), cv::Scalar(0,0,255));
-
-                // If you want to access the latest received ground steering, don't forget to lock the mutex:
-                {
-                    std::lock_guard<std::mutex> lck(gsrMutex);
-                    std::cout << "main: groundSteering = " << gsr.groundSteering() << std::endl;
-                }
-
-                // Display image on your screen.
-                if (VERBOSE) {
-                    cv::imshow(sharedMemory->name().c_str(), img);
-                    cv::waitKey(1);
-                }
-            }
+        // Lock the shared memory.
+        sharedMemory->lock();
+        {
+          // Copy the pixels from the shared memory into our own data structure.
+          cv::Mat wrapped(HEIGHT, WIDTH, CV_8UC4, sharedMemory->data());
+          fullImg = wrapped.clone();
+          img = fullImg(cv::Rect(0, HEIGHT/2, WIDTH, HEIGHT / 2));
         }
-        retCode = 0;
+        // TODO: Here, you can add some code to check the sampleTimePoint when
+        // the current frame was captured.
+        sharedMemory->unlock();
+
+        // yellow cone-shaped bojects are detected and drawn
+        detectAndDrawCones(
+            img, lowerYellow, upperYellow,
+            cv::Scalar(0, 255, 255)); // use the yellow color drawn
+        // detect and draw blue cone-shaped objects
+        detectAndDrawCones(
+            img, lowerBlue, upperBlue,
+            cv::Scalar(255, 0, 0)); // use the bule color to drawn
+
+        // TODO: Do something with the frame.
+        // Example: Draw a red rectangle and display image.
+        //cv::rectangle(img, cv::Point(50, 50), cv::Point(100, 100),
+        //              cv::Scalar(0, 0, 255));
+
+        // If you want to access the latest received ground steering, don't
+        // forget to lock the mutex:
+        {
+          std::lock_guard<std::mutex> lck(gsrMutex);
+          std::cout << "main: groundSteering = " << gsr.groundSteering()
+                    << std::endl;
+        }
+
+        // Display image on your screen.
+        if (VERBOSE) {
+          cv::imshow(sharedMemory->name().c_str(), img);
+          cv::waitKey(1);
+        }
+      }
     }
-    return retCode;
+    retCode = 0;
+  }
+  return retCode;
 }
