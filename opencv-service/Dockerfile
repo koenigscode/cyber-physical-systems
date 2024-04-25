@@ -29,16 +29,27 @@ RUN apt-get install -y --no-install-recommends \
         ca-certificates \
         cmake \
         build-essential \
-        libopencv-dev
+        libopencv-dev \
+        gcovr \
+        python3 python3-distutils \
+        wget
 
-# Include this source tree and compile the sources
+
 ADD . /opt/sources
 WORKDIR /opt/sources
-RUN mkdir build && \
-    cd build && \
-    cmake -D CMAKE_BUILD_TYPE=Release -D CMAKE_INSTALL_PREFIX=/tmp .. && \
-    make && make install
+RUN cd /opt/sources && \
+    cd ./tests && \
+    wget https://github.com/catchorg/Catch2/releases/download/v2.13.10/catch.hpp && \
+    cd .. && \
+    cp tests/* src/ && \
+    mkdir -p build
 
+RUN cd build && \
+    cmake -D CMAKE_BUILD_TYPE=Release -D CMAKE_INSTALL_PREFIX=/tmp .. && \
+    make && make install && make test && make coverage && cp coverage.xml /tmp
+
+FROM scratch as copytohost
+COPY --from=builder /tmp/coverage.xml .
 
 # Second stage for packaging the software into a software bundle:
 FROM ubuntu:18.04
@@ -56,6 +67,6 @@ RUN apt-get install -y --fix-missing --no-install-recommends \
         libopencv-imgproc3.2 
 
 WORKDIR /usr/bin
-COPY --from=builder /tmp/bin/template-opencv .
+COPY --from=builder /tmp/bin/opencv-service .
 # This is the entrypoint when starting the Docker container; hence, this Docker image is automatically starting our software on its creation
-ENTRYPOINT ["/usr/bin/template-opencv"]
+ENTRYPOINT ["/usr/bin/opencv-service"]

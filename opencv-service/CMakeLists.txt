@@ -15,14 +15,14 @@
 
 cmake_minimum_required(VERSION 3.2)
 
-project(template-opencv)
+project(opencv-service)
 
 ################################################################################
 # Defining the relevant versions of OpenDLV Standard Message Set and libcluon.
 # The OpenDLV Standard Message Set contains a set of messages usually used in automotive research project.
-set(OPENDLV_STANDARD_MESSAGE_SET opendlv-standard-message-set-v0.9.6.odvd)
+set(OPENDLV_STANDARD_MESSAGE_SET ../lib/opendlv-standard-message-set-v0.9.6.odvd)
 # libcluon is a small and portable middleware to easily realize high-performance microservices with C++: https://github.com/chrberger/libcluon
-set(CLUON_COMPLETE cluon-complete-v0.0.127.hpp)
+set(CLUON_COMPLETE ../lib/cluon-complete-v0.0.127.hpp)
 
 ################################################################################
 # Set the search path for .cmake files.
@@ -59,10 +59,10 @@ find_package(Threads REQUIRED)
 # cluon-msc is the message compiler that compiles a .odvd message specification into a header-only C++ file.
 add_custom_command(OUTPUT ${CMAKE_BINARY_DIR}/cluon-msc
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
-    COMMAND ${CMAKE_COMMAND} -E create_symlink ${CMAKE_CURRENT_SOURCE_DIR}/src/${CLUON_COMPLETE} ${CMAKE_BINARY_DIR}/cluon-complete.hpp
+    COMMAND ${CMAKE_COMMAND} -E create_symlink ${CMAKE_CURRENT_SOURCE_DIR}/lib/${CLUON_COMPLETE} ${CMAKE_BINARY_DIR}/cluon-complete.hpp
     COMMAND ${CMAKE_COMMAND} -E create_symlink ${CMAKE_BINARY_DIR}/cluon-complete.hpp ${CMAKE_BINARY_DIR}/cluon-complete.cpp
     COMMAND ${CMAKE_CXX_COMPILER} -o ${CMAKE_BINARY_DIR}/cluon-msc ${CMAKE_BINARY_DIR}/cluon-complete.cpp -std=c++14 -pthread -D HAVE_CLUON_MSC
-    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/src/${CLUON_COMPLETE})
+    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/lib/${CLUON_COMPLETE})
 
 ################################################################################
 # Generate opendlv-standard-message-set.hpp from ${OPENDLV_STANDARD_MESSAGE_SET} file.
@@ -103,3 +103,24 @@ add_dependencies(${PROJECT_NAME} generate_opendlv_standard_message_set_hpp)
 ################################################################################
 # Install executable.
 install(TARGETS ${PROJECT_NAME} DESTINATION bin COMPONENT ${PROJECT_NAME})
+
+# Testing
+enable_testing()
+add_executable(${PROJECT_NAME}-Runner tests/TestDummyTest.cpp)
+add_test(NAME ${PROJECT_NAME}-Runner COMMAND ${PROJECT_NAME}-Runner)
+
+# set compiler flags
+set(CMAKE_CXX_FLAGS "-O0 --coverage")
+
+# find required tools
+find_program(GCOVR gcovr REQUIRED)
+
+# add coverage target
+add_custom_target(coverage
+  COMMAND ${CMAKE_MAKE_PROGRAM} test
+  COMMAND ${GCOVR} -r .. --xml-pretty -e ".*\.hpp" -e ".*Test.*" --exclude-unreachable-branches -o coverage.xml
+  COMMAND ${GCOVR} -r .. -e ".*\.hpp" -e ".*Test.*" --exclude-unreachable-branches
+
+  WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+
+
