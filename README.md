@@ -3,29 +3,35 @@
 
 
 ## Requirements
-- Docker
+- Docker, docker compose
 
 
 ## How to check out the repository into a clean folder and how to build it
 1. Go to the location where you want to store this project
+
 2. Copy to your terminal
+
 ```bash
 git clone git@git.chalmers.se:courses/dit638/students/2024-group-22.git
 ```
+
 3. Now a directory 2024-group-22 will be created in your current directory
+
 4. Go to the project directory (cd 2024-group-22)
 ```bash
 cd 2024-group-22
 ```
-5. Build the Docker Image
+
+5. Start all microservices using docker compose:
 ```bash
-./build.sh # or build -t group-22/main:latest -f Dockerfile .
-```
-6. Run Your Project Inside a Docker Container
-```bash
-./run.sh # or docker run --rm group-22/main:latest 
+docker compose up
 ```
 
+Make sure that your `DISPLAY` environment variable is set and x11 forwarding is enabled.
+For example, on MacOS using XQuartz, this might look something like this:
+```bash
+xhost + && DISPLAY=docker.for.mac.host.internal:0 docker compose up
+```
 
 
 ## Commit messages style

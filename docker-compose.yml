@@ -1,0 +1,40 @@
+version: '3.8'  
+
+services:
+  vehicle-view:
+    image: chrberger/opendlv-vehicle-view:v0.0.64 
+    init: true  
+    volumes:
+      - ./data:/opt/vehicle-view/recordings  
+      - /var/run/docker.sock:/var/run/docker.sock 
+    ports:
+      - "8081:8081"  
+
+  h264decoder:
+    image: h264decoder:v0.0.5  
+    ipc: host  
+    environment:
+      - DISPLAY=${DISPLAY}
+    volumes:
+      - /tmp:/tmp  
+    command:  
+      - --cid=253
+      - --name=img
+
+  opencv_service:
+    build:
+      context: ./opencv-service
+    network_mode: host  
+    ipc: host  
+    environment:
+      - DISPLAY=${DISPLAY}
+    volumes:
+      - /tmp:/tmp  
+    restart: always # "workaround" to wait for first decoded frame
+    command:  
+      - --cid=253
+      - --name=img
+      - --width=640
+      - --height=480
+      - --verbose
+
