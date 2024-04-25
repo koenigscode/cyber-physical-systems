@@ -40,7 +40,7 @@ build-and-test:
     - docker-build
   stage: build
   script:
-    - docker build . --output . --target copytohost
+    - docker build opencv-service/Dockerfile --output . --target copytohost
   artifacts:
     name: ${CI_JOB_NAME}-${CI_COMMIT_REF_NAME}-${CI_COMMIT_SHA}
     reports:
@@ -57,5 +57,5 @@ release:
     - docker-build
   stage: deploy
   script:
-    - docker build -f Dockerfile -t "$CI_REGISTRY_IMAGE":"$CI_COMMIT_TAG" .
+    - docker build -f opencv-service/Dockerfile -t "$CI_REGISTRY_IMAGE":"$CI_COMMIT_TAG" .
     - docker push "$CI_REGISTRY_IMAGE":"$CI_COMMIT_TAG"
