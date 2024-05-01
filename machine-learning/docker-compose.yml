@@ -1,0 +1,7 @@
+version: '3.8'  
+
+services:
+  train:
+    build: 
+      context: .
+    image: ml-model
