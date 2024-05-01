@@ -144,11 +144,15 @@ int32_t main(int32_t argc, char **argv) {
           // Copy the pixels from the shared memory into our own data structure.
           cv::Mat wrapped(HEIGHT, WIDTH, CV_8UC4, sharedMemory->data());
           fullImg = wrapped.clone();
-          img = fullImg(cv::Rect(0, HEIGHT/2, WIDTH, HEIGHT / 2));
+          img = fullImg(cv::Rect(0, HEIGHT / 2, WIDTH, HEIGHT / 2));
         }
         // TODO: Here, you can add some code to check the sampleTimePoint when
         // the current frame was captured.
         sharedMemory->unlock();
+
+        // create a black square
+        cv::rectangle(img, cv::Point(220, 140), cv::Point(440, 240),
+                      cv::Vec3b(0, 0, 0), cv::FILLED);
 
         // yellow cone-shaped bojects are detected and drawn
         detectAndDrawCones(
@@ -161,7 +165,7 @@ int32_t main(int32_t argc, char **argv) {
 
         // TODO: Do something with the frame.
         // Example: Draw a red rectangle and display image.
-        //cv::rectangle(img, cv::Point(50, 50), cv::Point(100, 100),
+        // cv::rectangle(img, cv::Point(50, 50), cv::Point(100, 100),
         //              cv::Scalar(0, 0, 255));
 
         // If you want to access the latest received ground steering, don't
