@@ -24,7 +24,6 @@ services:
   opencv_service:
     build:
       context: ./opencv-service
-    network_mode: host  
     ipc: host  
     environment:
       - DISPLAY=${DISPLAY}
@@ -38,3 +37,10 @@ services:
       - --height=480
       - --verbose
 
+  train:
+    build: 
+      context: ./machine-learning
+    image: ml-model
+    volumes:
+      - ./opencv-service/lib/models:/app/model_output
+      - ./data:/app/data

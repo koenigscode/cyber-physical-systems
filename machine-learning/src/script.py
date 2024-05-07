@@ -2,8 +2,12 @@ import pandas as pd
 import os
 from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.ensemble import RandomForestRegressor
+from skl2onnx import to_onnx
 
-FOLDER_PATHS = ["../training_data/video-144821", "../training_data/video-145043", "../training_data/video-145233"]
+FOLDER_PATHS = ["../data/training_data/video-144821", "../data/training_data/video-145043", "../data/training_data/video-145233"]
+
+with open("../data/config/sensor_whitelist.txt") as f:
+    SENSOR_WHITELIST = f.read().splitlines()
 
 def preprocess(folder_path):
     preprocessed_df = []
@@ -11,8 +15,6 @@ def preprocess(folder_path):
         if file_name.endswith(".csv") and "ImageReading" not in file_name:
             file_path = os.path.join(folder_path, file_name)
             dataframe = pd.read_csv(file_path, sep=";")
-            dataframe.drop(dataframe.columns[len(dataframe.columns) -1], axis=1, inplace=True)
-            dataframe = dataframe.drop(columns=['received.seconds', 'received.microseconds', 'sent.seconds', 'sent.microseconds', 'sampleTimeStamp.microseconds'])
             dataframe = dataframe.groupby(['sampleTimeStamp.seconds']).mean().reset_index()
             dataframe.reset_index(drop=True, inplace=True)
             preprocessed_df.append(dataframe)
@@ -27,10 +29,12 @@ for df in dfs[1:]:
 merged_data.fillna(merged_data.mean(), inplace=True)
 
 
-X = merged_data.drop(columns=['sampleTimeStamp.seconds'])
 
+y = merged_data["groundSteering"]
+X = merged_data.filter(SENSOR_WHITELIST, axis=1)
+print(merged_data.columns)
+print(X.columns)
 print(X.head())
-y = X["groundSteering"]
 print("X shape:", X.shape)
 print("y shape:", y.shape)
 
@@ -44,10 +48,17 @@ param_grid = {
 
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-rf_model = RandomForestRegressor(random_state=42)
+clr = RandomForestRegressor(random_state=42)
 
-grid_search = GridSearchCV(estimator=rf_model, param_grid=param_grid, cv=5, scoring='r2', verbose=1, n_jobs=-1)
+grid_search = GridSearchCV(estimator=clr, param_grid=param_grid, cv=2, scoring='r2', verbose=1, n_jobs=-1)
 grid_search.fit(X_train, y_train)
+
+clr.fit(X_train, y_train)
+
+# export model to disk
+onx = to_onnx(clr, X.to_numpy())
+with open("clr.onnx", "wb") as f:
+    f.write(onx.SerializeToString())
 
 best_params = grid_search.best_params_
 best_score = grid_search.best_score_
@@ -60,3 +71,4 @@ y_pred = best_rf_model.predict(X_test)
 
 accuracy = best_rf_model.score(X_test, y_test)
 print("Accuracy:", accuracy)
+
