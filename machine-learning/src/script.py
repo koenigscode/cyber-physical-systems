@@ -1,81 +1,36 @@
 import pandas as pd
+import os
 from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.ensemble import RandomForestRegressor
 
-def preprocess(path):
-    dataframe = pd.read_csv(path, sep=";")
-    dataframe.drop(dataframe.columns[len(dataframe.columns) -1], axis=1, inplace=True)
-    dataframe = dataframe.drop(columns=['received.seconds', 'received.microseconds', 'sent.seconds', 'sent.microseconds', 'sampleTimeStamp.microseconds'])
-    dataframe = dataframe.groupby(['sampleTimeStamp.seconds']).mean().reset_index()
-    dataframe.reset_index(drop=True, inplace=True)
-    return dataframe
+FOLDER_PATHS = ["../training_data/video-144821", "../training_data/video-145043", "../training_data/video-145233"]
 
+def preprocess(folder_path):
+    preprocessed_df = []
+    for file_name in os.listdir(folder_path):
+        if file_name.endswith(".csv") and "ImageReading" not in file_name:
+            file_path = os.path.join(folder_path, file_name)
+            dataframe = pd.read_csv(file_path, sep=";")
+            dataframe.drop(dataframe.columns[len(dataframe.columns) -1], axis=1, inplace=True)
+            dataframe = dataframe.drop(columns=['received.seconds', 'received.microseconds', 'sent.seconds', 'sent.microseconds', 'sampleTimeStamp.microseconds'])
+            dataframe = dataframe.groupby(['sampleTimeStamp.seconds']).mean().reset_index()
+            dataframe.reset_index(drop=True, inplace=True)
+            preprocessed_df.append(dataframe)
+    result = pd.concat(preprocessed_df, axis=0, ignore_index=True)
+    return result
 
-geolocation_data_144821 = preprocess("../training_data/video-144821/opendlv.logic.sensation.Geolocation-0.csv")
-geolocation_data_145233 = preprocess("../training_data/video-145233/opendlv.logic.sensation.Geolocation-0.csv")
-geolocation_data_145043 = preprocess("../training_data/video-145043/opendlv.logic.sensation.Geolocation-0.csv")
+dfs = [preprocess(path) for path in FOLDER_PATHS]
 
-geolocation_data = pd.concat([geolocation_data_145043, geolocation_data_144821, geolocation_data_145233], axis=0, ignore_index=True)
-
-
-acceleration_data_144821 = preprocess("../training_data/video-144821/opendlv.proxy.AccelerationReading-0.csv")
-acceleration_data_145233 = preprocess("../training_data/video-145233/opendlv.proxy.AccelerationReading-0.csv")
-acceleration_data_145043 = preprocess("../training_data/video-145043/opendlv.proxy.AccelerationReading-0.csv")
-
-acceleration_data = pd.concat([acceleration_data_144821, acceleration_data_145043, acceleration_data_145233], axis = 0, ignore_index=True)
-
-angular_velocity_data_144821 = preprocess("../training_data/video-144821/opendlv.proxy.AngularVelocityReading-0.csv")
-angular_velocity_data_145233 = preprocess("../training_data/video-145233/opendlv.proxy.AngularVelocityReading-0.csv")
-angular_velocity_data_145043 = preprocess("../training_data/video-145043/opendlv.proxy.AngularVelocityReading-0.csv")
-angular_velocity_data = pd.concat([angular_velocity_data_144821, angular_velocity_data_145043, angular_velocity_data_145233], axis=0, ignore_index=True)
-
-distance_data1_144821 = preprocess("../training_data/video-144821/opendlv.proxy.DistanceReading-0.csv")
-distance_data1_145233 = preprocess("../training_data/video-145233/opendlv.proxy.DistanceReading-0.csv")
-distance_data1_145043 = preprocess("../training_data/video-145043/opendlv.proxy.DistanceReading-0.csv")
-
-distance_data1 = pd.concat([distance_data1_144821, distance_data1_145043, distance_data1_145233], axis=0, ignore_index=True)
-
-
-distance_data2_144821 = preprocess("../training_data/video-144821/opendlv.proxy.DistanceReading-2.csv")
-distance_data2_145233 = preprocess("../training_data/video-145233/opendlv.proxy.DistanceReading-2.csv")
-distance_data2_145043 = preprocess("../training_data/video-145043/opendlv.proxy.DistanceReading-2.csv")
-
-distance_data2 = pd.concat([distance_data2_144821, distance_data2_145043, distance_data2_145233], axis=0, ignore_index=True)
-
-
-steering_data_144821 = preprocess("../training_data/video-144821/opendlv.proxy.GroundSteeringRequest-0.csv")
-steering_data_145043 = preprocess("../training_data/video-145043/opendlv.proxy.GroundSteeringRequest-0.csv")
-steering_data_145233 = preprocess("../training_data/video-145233/opendlv.proxy.GroundSteeringRequest-0.csv")
-
-steering_data = pd.concat([steering_data_144821, steering_data_145043, steering_data_145233], axis=0, ignore_index=True)
-
-magnetic_field_data_144821 = preprocess("../training_data/video-144821/opendlv.proxy.MagneticFieldReading-0.csv")
-magnetic_field_data_145233 = preprocess("../training_data/video-145233/opendlv.proxy.MagneticFieldReading-0.csv")
-magnetic_field_data_145043 = preprocess("../training_data/video-145043/opendlv.proxy.MagneticFieldReading-0.csv")
-
-magnetic_field_data = pd.concat([magnetic_field_data_144821, magnetic_field_data_145043, magnetic_field_data_145233], axis = 0, ignore_index=True)
-
-pedal_pos_data_144821 = preprocess("../training_data/video-144821/opendlv.proxy.PedalPositionRequest-0.csv")
-pedal_pos_data_145233 = preprocess("../training_data/video-145233/opendlv.proxy.PedalPositionRequest-0.csv")
-
-pedal_pos_data_145043 = preprocess("../training_data/video-145043/opendlv.proxy.PedalPositionRequest-0.csv")
-
-pedal_pos_data = pd.concat([pedal_pos_data_144821, pedal_pos_data_145043, pedal_pos_data_145233], axis=0, ignore_index=True)
-
-
-merged_data = pd.merge(geolocation_data, acceleration_data, on=['sampleTimeStamp.seconds'], how="outer")
-merged_data = pd.merge(merged_data, angular_velocity_data, on=['sampleTimeStamp.seconds'], how="outer")
-merged_data = pd.merge(merged_data, distance_data1, on=['sampleTimeStamp.seconds'], how="outer")
-merged_data = pd.merge(merged_data, distance_data2, on=['sampleTimeStamp.seconds'], how="outer")
-merged_data = pd.merge(merged_data, magnetic_field_data, on=['sampleTimeStamp.seconds'], how="outer")
-merged_data = pd.merge(merged_data, pedal_pos_data, on=['sampleTimeStamp.seconds'], how="outer")
+merged_data = dfs[0]
+for df in dfs[1:]:
+    merged_data = pd.merge(merged_data, df, on=['sampleTimeStamp.seconds'], how="outer")
 merged_data.fillna(merged_data.mean(), inplace=True)
 
 
 X = merged_data.drop(columns=['sampleTimeStamp.seconds'])
 
 print(X.head())
-y = steering_data["groundSteering"]
+y = X["groundSteering"]
 print("X shape:", X.shape)
 print("y shape:", y.shape)
 
