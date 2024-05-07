@@ -5,3 +5,16 @@ services:
     build: 
       context: .
     image: ml-model
+
+
+# based on https://giters.com/chalmers-revere/opendlv?ysclid=lvv5kkcpig12511497
+  rec2csv_png:
+       container_name: rec2csv_png
+       build:
+           context: https://github.com/chalmers-revere/rec2csv-png.git
+           dockerfile: Dockerfile
+       restart: on-failure
+       volumes:
+       - .:/opt/data
+       working_dir: /opt/data
+       command: "--rec=YourRecording.rec --odvd=YourMessageSpec.odvd"
