@@ -1,3 +1,7 @@
 angularVelocityX
 angularVelocityY
 angularVelocityZ
+accelerationX
+accelerationY
+accelerationZ
+voltage

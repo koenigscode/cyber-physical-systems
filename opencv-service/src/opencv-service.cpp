@@ -151,6 +151,28 @@ int32_t main(int32_t argc, char **argv) {
       od4.dataTrigger(opendlv::proxy::AngularVelocityReading::ID(),
                       onAngularVRequest);
 
+      opendlv::proxy::AccelerationReading accel;
+      std::mutex accelMutex;
+      auto onAccelRequest = [&accel, &accelMutex](cluon::data::Envelope &&env) {
+        std::lock_guard<std::mutex> lck(accelMutex);
+        accel = cluon::extractMessage<opendlv::proxy::AccelerationReading>(
+            std::move(env));
+      };
+
+      od4.dataTrigger(opendlv::proxy::AccelerationReading::ID(),
+                      onAccelRequest);
+
+      opendlv::proxy::VoltageReading voltage;
+      std::mutex voltageMutex;
+      auto onVoltageRequest = [&voltage, &voltageMutex](cluon::data::Envelope &&env) {
+        std::lock_guard<std::mutex> lck(voltageMutex);
+        voltage = cluon::extractMessage<opendlv::proxy::VoltageReading>(
+            std::move(env));
+      };
+
+      od4.dataTrigger(opendlv::proxy::VoltageReading::ID(),
+                      onVoltageRequest);
+
       std::string model_path = "./clr.onnx";
       Ort::Env env(ORT_LOGGING_LEVEL_WARNING, "InferenceEnv");
       Ort::SessionOptions session_options;
@@ -205,13 +227,18 @@ int32_t main(int32_t argc, char **argv) {
         {
           std::lock_guard<std::mutex> gsrLock(gsrMutex);
           std::lock_guard<std::mutex> angularVLock(angularVMutex);
-          std::cout << "main: groundSteering = " << gsr.groundSteering()
-                    << std::endl;
+          std::lock_guard<std::mutex> accelLock(accelMutex);
+          std::lock_guard<std::mutex> voltageLock(voltageMutex);
 
-          std::vector<float> input_data = {angularV.angularVelocityX(),
-                                           angularV.angularVelocityY(),
-                                           angularV.angularVelocityZ()};
-          std::vector<int64_t> input_shape = {1, 3};
+          /* std::cout << "main: groundSteering = " << gsr.groundSteering() */
+          /*           << std::endl; */
+
+          std::vector<float> input_data = {
+              angularV.angularVelocityX(), angularV.angularVelocityY(),
+              angularV.angularVelocityZ(), accel.accelerationX(),
+              accel.accelerationY(),       accel.accelerationZ(), voltage.voltage()};
+
+          std::vector<int64_t> input_shape = {1, input_data.size()};
 
           Ort::Value input_tensor = Ort::Value::CreateTensor<float>(
               memory_info, input_data.data(), input_data.size(),
@@ -229,9 +256,9 @@ int32_t main(int32_t argc, char **argv) {
           int output_size =
               output_tensors[0].GetTensorTypeAndShapeInfo().GetElementCount();
 
-          std::cout << "Inference: ";
-          std::cout << " " << output_data[0];
-          std::cout << std::endl;
+          /* std::cout << "Inference: "; */
+          /* std::cout << " " << output_data[0]; */
+          /* std::cout << std::endl; */
 
           if (gsr.groundSteering() != 0) {
             frames_processed++;
