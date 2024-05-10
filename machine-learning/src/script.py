@@ -57,7 +57,7 @@ grid_search.fit(X_train, y_train)
 
 # export model to disk
 onx = to_onnx(grid_search, X)
-with open("clr.onnx", "wb") as f:
+with open("/app/model_output/clr.onnx", "wb") as f:
     f.write(onx.SerializeToString())
 
 best_params = grid_search.best_params_
