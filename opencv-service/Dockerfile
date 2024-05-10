@@ -34,6 +34,9 @@ RUN apt-get install -y --no-install-recommends \
         python3 python3-distutils \
         wget
 
+COPY ./lib/onnxruntime /usr/onnxruntime
+
+RUN ldconfig /usr/onnxruntime/lib
 
 ADD . /opt/sources
 WORKDIR /opt/sources
@@ -66,7 +69,12 @@ RUN apt-get install -y --fix-missing --no-install-recommends \
         libopencv-highgui3.2 \
         libopencv-imgproc3.2 
 
+COPY ./lib/onnxruntime /usr/onnxruntime
+
+RUN ldconfig /usr/onnxruntime/lib
+
 WORKDIR /usr/bin
 COPY --from=builder /tmp/bin/opencv-service .
+COPY --from=builder /opt/sources/lib/models .
 # This is the entrypoint when starting the Docker container; hence, this Docker image is automatically starting our software on its creation
 ENTRYPOINT ["/usr/bin/opencv-service"]

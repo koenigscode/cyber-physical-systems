@@ -26,8 +26,12 @@
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 
+#include <onnxruntime_cxx_api.h>
+
 #include <iostream>
 #include <mutex>
+#include <unistd.h> // For getcwd
+#include <vector>
 
 // dectecting and drawing conical object
 void detectAndDrawCones(cv::Mat &frame, const cv::Scalar &lowerColor,
@@ -122,12 +126,34 @@ int32_t main(int32_t argc, char **argv) {
         std::lock_guard<std::mutex> lck(gsrMutex);
         gsr = cluon::extractMessage<opendlv::proxy::GroundSteeringRequest>(
             std::move(env));
-        std::cout << "lambda: groundSteering = " << gsr.groundSteering()
-                  << std::endl;
       };
 
       od4.dataTrigger(opendlv::proxy::GroundSteeringRequest::ID(),
                       onGroundSteeringRequest);
+
+      opendlv::proxy::AngularVelocityReading angularV;
+      std::mutex angularVMutex;
+      auto onAngularVRequest = [&angularV,
+                                &angularVMutex](cluon::data::Envelope &&env) {
+        std::lock_guard<std::mutex> lck(angularVMutex);
+        angularV =
+            cluon::extractMessage<opendlv::proxy::AngularVelocityReading>(
+                std::move(env));
+      };
+
+      od4.dataTrigger(opendlv::proxy::AngularVelocityReading::ID(),
+                      onAngularVRequest);
+
+      std::string model_path = "./clr.onnx";
+      Ort::Env env(ORT_LOGGING_LEVEL_WARNING, "InferenceEnv");
+      Ort::SessionOptions session_options;
+      Ort::Session session(env, model_path.c_str(), session_options);
+
+      std::vector<const char *> input_node_names = {"X"};
+      std::vector<const char *> output_node_names = {"variable"};
+
+      Ort::MemoryInfo memory_info =
+          Ort::MemoryInfo::CreateCpu(OrtDeviceAllocator, OrtMemTypeDefault);
 
       // Endless loop; end the program by pressing Ctrl-C.
       while (od4.isRunning()) {
@@ -144,7 +170,7 @@ int32_t main(int32_t argc, char **argv) {
           // Copy the pixels from the shared memory into our own data structure.
           cv::Mat wrapped(HEIGHT, WIDTH, CV_8UC4, sharedMemory->data());
           fullImg = wrapped.clone();
-          img = fullImg(cv::Rect(0, HEIGHT/2, WIDTH, HEIGHT / 2));
+          img = fullImg(cv::Rect(0, HEIGHT / 2, WIDTH, HEIGHT / 2));
         }
         // TODO: Here, you can add some code to check the sampleTimePoint when
         // the current frame was captured.
@@ -161,15 +187,43 @@ int32_t main(int32_t argc, char **argv) {
 
         // TODO: Do something with the frame.
         // Example: Draw a red rectangle and display image.
-        //cv::rectangle(img, cv::Point(50, 50), cv::Point(100, 100),
+        // cv::rectangle(img, cv::Point(50, 50), cv::Point(100, 100),
         //              cv::Scalar(0, 0, 255));
 
         // If you want to access the latest received ground steering, don't
         // forget to lock the mutex:
         {
-          std::lock_guard<std::mutex> lck(gsrMutex);
+          std::lock_guard<std::mutex> gsrLock(gsrMutex);
+          std::lock_guard<std::mutex> angularVLock(angularVMutex);
           std::cout << "main: groundSteering = " << gsr.groundSteering()
                     << std::endl;
+
+          std::vector<float> input_data = {angularV.angularVelocityX(),
+                                           angularV.angularVelocityY(),
+                                           angularV.angularVelocityZ()};
+          std::vector<int64_t> input_shape = {1, 3};
+
+          Ort::Value input_tensor = Ort::Value::CreateTensor<float>(
+              memory_info, input_data.data(), input_data.size(),
+              input_shape.data(), input_shape.size());
+
+          std::vector<Ort::Value> input_tensors;
+          input_tensors.push_back(std::move(input_tensor));
+
+          auto output_tensors =
+              session.Run(Ort::RunOptions{nullptr}, input_node_names.data(),
+                          input_tensors.data(), input_tensors.size(),
+                          output_node_names.data(), 1);
+
+          float *output_data = output_tensors[0].GetTensorMutableData<float>();
+          int output_size =
+              output_tensors[0].GetTensorTypeAndShapeInfo().GetElementCount();
+
+          std::cout << "Inference: ";
+          for (int i = 0; i < output_size; ++i) {
+            std::cout << " " << output_data[i];
+          }
+          std::cout << std::endl;
         }
 
         // Display image on your screen.

@@ -1,14 +1,3 @@
 angularVelocityX
 angularVelocityY
 angularVelocityZ
-accelerationX
-accelerationY
-accelerationZ
-position
-distance
-distance_x
-distance_y
-magneticFieldX
-magneticFieldY
-magneticFieldZ
-voltage

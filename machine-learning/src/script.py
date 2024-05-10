@@ -1,5 +1,6 @@
 import pandas as pd
 import os
+import numpy as np
 from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.ensemble import RandomForestRegressor
 from skl2onnx import to_onnx
@@ -45,7 +46,9 @@ param_grid = {
     'min_samples_leaf': [1, 2, 4]
 }
 
-X = X.to_numpy()
+print("Columns used (unsorted):")
+print(X.columns)
+X = X.to_numpy().astype(np.float32)
 
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.25, random_state=42)
 
