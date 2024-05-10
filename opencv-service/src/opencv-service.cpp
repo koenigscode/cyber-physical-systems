@@ -28,10 +28,17 @@
 
 #include <onnxruntime_cxx_api.h>
 
+#include <cmath>
 #include <iostream>
 #include <mutex>
-#include <unistd.h> // For getcwd
-#include <vector>
+
+bool isWithinPercentThreshold(float target, float prediction,
+                              float percentage) {
+  float threshold = std::abs(target * percentage);
+  float diff = std::abs(target - prediction);
+
+  return diff <= threshold;
+}
 
 // dectecting and drawing conical object
 void detectAndDrawCones(cv::Mat &frame, const cv::Scalar &lowerColor,
@@ -155,6 +162,9 @@ int32_t main(int32_t argc, char **argv) {
       Ort::MemoryInfo memory_info =
           Ort::MemoryInfo::CreateCpu(OrtDeviceAllocator, OrtMemTypeDefault);
 
+      int frames_processed{0};
+      int frames_within_threshold{0};
+
       // Endless loop; end the program by pressing Ctrl-C.
       while (od4.isRunning()) {
         // OpenCV data structure to hold an image.
@@ -220,9 +230,13 @@ int32_t main(int32_t argc, char **argv) {
               output_tensors[0].GetTensorTypeAndShapeInfo().GetElementCount();
 
           std::cout << "Inference: ";
-          for (int i = 0; i < output_size; ++i) {
-            std::cout << " " << output_data[i];
-          }
+          std::cout << " " << output_data[0];
+          std::cout << std::endl;
+          frames_processed++;
+          frames_within_threshold += isWithinPercentThreshold(
+              gsr.groundSteering(), output_data[0], 0.25);
+          std::cout << "Within Threshold: ";
+          std::cout << static_cast<float>(frames_within_threshold) / frames_processed * 100.0;
           std::cout << std::endl;
         }
 
