@@ -232,12 +232,16 @@ int32_t main(int32_t argc, char **argv) {
           std::cout << "Inference: ";
           std::cout << " " << output_data[0];
           std::cout << std::endl;
-          frames_processed++;
-          frames_within_threshold += isWithinPercentThreshold(
-              gsr.groundSteering(), output_data[0], 0.25);
-          std::cout << "Within Threshold: ";
-          std::cout << static_cast<float>(frames_within_threshold) / frames_processed * 100.0;
-          std::cout << std::endl;
+
+          if (gsr.groundSteering() != 0) {
+            frames_processed++;
+            frames_within_threshold += isWithinPercentThreshold(
+                gsr.groundSteering(), output_data[0], 0.25);
+            std::cout << "Within Threshold: ";
+            std::cout << static_cast<float>(frames_within_threshold) /
+                             frames_processed * 100.0;
+            std::cout << std::endl;
+          }
         }
 
         // Display image on your screen.
