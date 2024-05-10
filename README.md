@@ -22,15 +22,30 @@ git clone git@git.chalmers.se:courses/dit638/students/2024-group-22.git
 cd 2024-group-22
 ```
 
-5. Start all microservices using docker compose:
+5. Train the ML model:
 ```bash
-docker compose up
+docker compose run --build train
+```
+
+This will save the generated ML model in ONNX format in `opencv-service/lib/models`
+
+
+6. Start the vehicle view and h264decoder microservices:
+```bash
+docker compose up vehicle-view h264decoder -d
+```
+
+7. Play some frames in the Web UI, so that there is data in the shared memory
+
+8. Start the opencv-service:
+```bash
+docker compose run --build opencv_service
 ```
 
 Make sure that your `DISPLAY` environment variable is set and x11 forwarding is enabled.
 For example, on MacOS using XQuartz, this might look something like this:
 ```bash
-xhost + && DISPLAY=docker.for.mac.host.internal:0 docker compose up
+xhost + && DISPLAY=docker.for.mac.host.internal:0 docker compose run --build opencv_service
 ```
 
 
