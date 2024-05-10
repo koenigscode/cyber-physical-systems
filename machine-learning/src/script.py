@@ -9,7 +9,7 @@ from sklearn.metrics import make_scorer
 
 FOLDER_PATHS = ["../data/training_data/video-144821", "../data/training_data/video-145043",
                 "../data/training_data/video-145233", "../data/training_data/video-145641", "../data/training_data/video-150001"]
-TEST_VIDEO_INDEX = 2 # use n:th video for testing
+TEST_VIDEO_INDEX = 1  # use n:th video for testing
 
 test_video_path = FOLDER_PATHS[TEST_VIDEO_INDEX]
 del FOLDER_PATHS[TEST_VIDEO_INDEX]

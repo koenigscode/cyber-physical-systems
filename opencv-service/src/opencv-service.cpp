@@ -164,14 +164,26 @@ int32_t main(int32_t argc, char **argv) {
 
       opendlv::proxy::VoltageReading voltage;
       std::mutex voltageMutex;
-      auto onVoltageRequest = [&voltage, &voltageMutex](cluon::data::Envelope &&env) {
+      auto onVoltageRequest = [&voltage,
+                               &voltageMutex](cluon::data::Envelope &&env) {
         std::lock_guard<std::mutex> lck(voltageMutex);
         voltage = cluon::extractMessage<opendlv::proxy::VoltageReading>(
             std::move(env));
       };
 
-      od4.dataTrigger(opendlv::proxy::VoltageReading::ID(),
-                      onVoltageRequest);
+      od4.dataTrigger(opendlv::proxy::VoltageReading::ID(), onVoltageRequest);
+
+      opendlv::proxy::PedalPositionReading pedal;
+      std::mutex pedalMutex;
+      auto onPedalRequest = [&pedal,
+                             &pedalMutex](cluon::data::Envelope &&env) {
+        std::lock_guard<std::mutex> lck(pedalMutex);
+        pedal = cluon::extractMessage<opendlv::proxy::PedalPositionReading>(
+            std::move(env));
+      };
+
+      od4.dataTrigger(opendlv::proxy::PedalPositionReading::ID(),
+                      onPedalRequest);
 
       std::string model_path = "./clr.onnx";
       Ort::Env env(ORT_LOGGING_LEVEL_WARNING, "InferenceEnv");
@@ -229,6 +241,7 @@ int32_t main(int32_t argc, char **argv) {
           std::lock_guard<std::mutex> angularVLock(angularVMutex);
           std::lock_guard<std::mutex> accelLock(accelMutex);
           std::lock_guard<std::mutex> voltageLock(voltageMutex);
+          std::lock_guard<std::mutex> pedalLock(pedalMutex);
 
           /* std::cout << "main: groundSteering = " << gsr.groundSteering() */
           /*           << std::endl; */
@@ -236,7 +249,8 @@ int32_t main(int32_t argc, char **argv) {
           std::vector<float> input_data = {
               angularV.angularVelocityX(), angularV.angularVelocityY(),
               angularV.angularVelocityZ(), accel.accelerationX(),
-              accel.accelerationY(),       accel.accelerationZ(), voltage.voltage()};
+              accel.accelerationY(),       accel.accelerationZ(),
+              voltage.voltage(),           pedal.position()};
 
           std::vector<int64_t> input_shape = {1, input_data.size()};
 
@@ -256,10 +270,6 @@ int32_t main(int32_t argc, char **argv) {
           int output_size =
               output_tensors[0].GetTensorTypeAndShapeInfo().GetElementCount();
 
-          /* std::cout << "Inference: "; */
-          /* std::cout << " " << output_data[0]; */
-          /* std::cout << std::endl; */
-
           if (gsr.groundSteering() != 0) {
             frames_processed++;
             frames_within_threshold += isWithinPercentThreshold(
@@ -267,6 +277,7 @@ int32_t main(int32_t argc, char **argv) {
             std::cout << "Within Threshold: ";
             std::cout << static_cast<float>(frames_within_threshold) /
                              frames_processed * 100.0;
+            std::cout << "%";
             std::cout << std::endl;
           }
         }
