@@ -5,7 +5,8 @@ from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.ensemble import RandomForestRegressor
 from skl2onnx import to_onnx
 from sklearn.metrics import make_scorer
-
+from sklearn.linear_model import LinearRegression
+from sklearn.ensemble import StackingRegressor
 
 FOLDER_PATHS = ["../data/training_data/video-144821", "../data/training_data/video-145043",
                 "../data/training_data/video-145233", "../data/training_data/video-145641", "../data/training_data/video-150001"]
@@ -108,7 +109,6 @@ onx = to_onnx(best_clr, X_train)
 with open("/app/model_output/clr.onnx", "wb") as f:
     f.write(onx.SerializeToString())
 
-y_pred = best_clr.predict(X_test)
 
 print("Feature importance (most important first):")
 col_importance_pair = sorted(zip(
@@ -116,8 +116,15 @@ col_importance_pair = sorted(zip(
 for col, importance in col_importance_pair:
     print(f"Feature '{col}': {round(importance, 4)}")
 
+stacked_model = StackingRegressor(
+    estimators=[('rf', best_clr)],
+    final_estimator=LinearRegression()
+)
 
-accuracy = best_clr.score(X_test, y_test)
+stacked_model.fit(X_train, y_train)
+y_pred = stacked_model.predict(X_test)
+
+accuracy = stacked_model.score(X_test, y_test)
 print("Accuracy:", accuracy)
 
 in_bounds_counter = 0
