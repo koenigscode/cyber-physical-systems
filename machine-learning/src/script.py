@@ -46,7 +46,7 @@ def preprocess(folder_path):
         if file_name.endswith(".csv") and "ImageReading" not in file_name:
             file_path = os.path.join(folder_path, file_name)
             dataframe = pd.read_csv(file_path, sep=";")
-            dataframe["sampleTimeStamp.microseconds"] = pd.qcut(dataframe["sampleTimeStamp.microseconds"], q=5, labels=False)
+            dataframe["sampleTimeStamp.microseconds"] = pd.qcut(dataframe["sampleTimeStamp.microseconds"], q=1, labels=False)
             dataframe = dataframe.groupby(
                 ['sampleTimeStamp.seconds', "sampleTimeStamp.microseconds"]).mean().reset_index()
             dataframe.reset_index(drop=True, inplace=True)

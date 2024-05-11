@@ -29,8 +29,37 @@
 #include <onnxruntime_cxx_api.h>
 
 #include <cmath>
+#include <deque>
 #include <iostream>
 #include <mutex>
+
+class CurrentPerformanceChecker {
+private:
+  std::deque<bool> within_threshold;
+  size_t capacity;
+
+public:
+  CurrentPerformanceChecker(size_t capacity) : capacity(capacity) {}
+
+  void add(bool value) {
+    within_threshold.push_back(value);
+    if (within_threshold.size() > capacity) {
+      within_threshold.pop_front();
+    }
+  }
+
+  size_t getSize() { return capacity; }
+
+  float getPercentage() const {
+    size_t trueCount = 0;
+    for (bool val : within_threshold) {
+      if (val) {
+        trueCount++;
+      }
+    }
+    return static_cast<float>(trueCount) / within_threshold.size();
+  }
+};
 
 bool isWithinPercentThreshold(float target, float prediction,
                               float percentage) {
@@ -175,8 +204,7 @@ int32_t main(int32_t argc, char **argv) {
 
       opendlv::proxy::PedalPositionReading pedal;
       std::mutex pedalMutex;
-      auto onPedalRequest = [&pedal,
-                             &pedalMutex](cluon::data::Envelope &&env) {
+      auto onPedalRequest = [&pedal, &pedalMutex](cluon::data::Envelope &&env) {
         std::lock_guard<std::mutex> lck(pedalMutex);
         pedal = cluon::extractMessage<opendlv::proxy::PedalPositionReading>(
             std::move(env));
@@ -199,6 +227,8 @@ int32_t main(int32_t argc, char **argv) {
       int frames_processed{0};
       int frames_within_threshold{0};
 
+      CurrentPerformanceChecker perfChecker(20);
+
       // Endless loop; end the program by pressing Ctrl-C.
       while (od4.isRunning()) {
         // OpenCV data structure to hold an image.
@@ -216,8 +246,10 @@ int32_t main(int32_t argc, char **argv) {
           fullImg = wrapped.clone();
           img = fullImg(cv::Rect(0, HEIGHT / 2, WIDTH, HEIGHT / 2));
         }
-        // TODO: Here, you can add some code to check the sampleTimePoint when
-        // the current frame was captured.
+
+        cluon::data::TimeStamp ts = sharedMemory->getTimeStamp().second;
+        int64_t ts_micro = cluon::time::toMicroseconds(ts);
+
         sharedMemory->unlock();
 
         // yellow cone-shaped bojects are detected and drawn
@@ -228,11 +260,6 @@ int32_t main(int32_t argc, char **argv) {
         detectAndDrawCones(
             img, lowerBlue, upperBlue,
             cv::Scalar(255, 0, 0)); // use the bule color to drawn
-
-        // TODO: Do something with the frame.
-        // Example: Draw a red rectangle and display image.
-        // cv::rectangle(img, cv::Point(50, 50), cv::Point(100, 100),
-        //              cv::Scalar(0, 0, 255));
 
         // If you want to access the latest received ground steering, don't
         // forget to lock the mutex:
@@ -271,25 +298,42 @@ int32_t main(int32_t argc, char **argv) {
               output_tensors[0].GetTensorTypeAndShapeInfo().GetElementCount();
 
           if (gsr.groundSteering() != 0) {
-            frames_processed++;
-            frames_within_threshold += isWithinPercentThreshold(
+            bool isWithinThreshold = isWithinPercentThreshold(
                 gsr.groundSteering(), output_data[0], 0.25);
-            std::cout << "Within Threshold: ";
-            std::cout << static_cast<float>(frames_within_threshold) /
-                             frames_processed * 100.0;
-            std::cout << "%";
-            std::cout << std::endl;
+
+            perfChecker.add(isWithinThreshold);
+            frames_processed++;
+            frames_within_threshold += isWithinThreshold;
+          }
+
+          std::cout << "group_22;" << std::to_string(ts_micro) << ";"
+                    << output_data[0] << std::endl;
+
+          cv::putText(
+              img,
+              "Average correct: " +
+                  std::to_string(static_cast<float>(frames_within_threshold) /
+                                 frames_processed * 100.0) +
+                  "%",
+              cv::Point(10, 10), cv::FONT_HERSHEY_DUPLEX, 0.5,
+              CV_RGB(255, 0, 0), 1);
+
+          cv::putText(img,
+                      "Correct within last " +
+                          std::to_string(perfChecker.getSize()) + " frames: " +
+                          std::to_string(perfChecker.getPercentage() * 100.0) + "%",
+                      cv::Point(10, 30), cv::FONT_HERSHEY_DUPLEX, 0.5,
+                      CV_RGB(255, 0, 0), 1);
+
+          // Display image on your screen.
+          if (VERBOSE) {
+            cv::imshow(sharedMemory->name().c_str(), img);
+            cv::waitKey(1);
           }
         }
-
-        // Display image on your screen.
-        if (VERBOSE) {
-          cv::imshow(sharedMemory->name().c_str(), img);
-          cv::waitKey(1);
-        }
       }
+      retCode = 0;
     }
-    retCode = 0;
   }
   return retCode;
 }
