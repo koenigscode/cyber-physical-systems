@@ -6,3 +6,6 @@ accelerationY
 accelerationZ
 voltage
 position
+magneticFieldX
+magneticFieldY
+magneticFieldZ

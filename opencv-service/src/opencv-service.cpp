@@ -213,6 +213,18 @@ int32_t main(int32_t argc, char **argv) {
       od4.dataTrigger(opendlv::proxy::PedalPositionReading::ID(),
                       onPedalRequest);
 
+      opendlv::proxy::MagneticFieldReading mag;
+      std::mutex magMutex;
+      auto onMagneticFieldReading = [&mag,
+                                     &magMutex](cluon::data::Envelope &&env) {
+        std::lock_guard<std::mutex> lck(magMutex);
+        mag = cluon::extractMessage<opendlv::proxy::MagneticFieldReading>(
+            std::move(env));
+      };
+
+      od4.dataTrigger(opendlv::proxy::PedalPositionReading::ID(),
+                      onPedalRequest);
+
       std::string model_path = "./clr.onnx";
       Ort::Env env(ORT_LOGGING_LEVEL_WARNING, "InferenceEnv");
       Ort::SessionOptions session_options;
@@ -269,15 +281,15 @@ int32_t main(int32_t argc, char **argv) {
           std::lock_guard<std::mutex> accelLock(accelMutex);
           std::lock_guard<std::mutex> voltageLock(voltageMutex);
           std::lock_guard<std::mutex> pedalLock(pedalMutex);
-
-          /* std::cout << "main: groundSteering = " << gsr.groundSteering() */
-          /*           << std::endl; */
+          std::lock_guard<std::mutex> magLock(magMutex);
 
           std::vector<float> input_data = {
               angularV.angularVelocityX(), angularV.angularVelocityY(),
               angularV.angularVelocityZ(), accel.accelerationX(),
               accel.accelerationY(),       accel.accelerationZ(),
-              voltage.voltage(),           pedal.position()};
+              voltage.voltage(),           pedal.position(),
+              mag.magneticFieldX(),        mag.magneticFieldY(),
+              mag.magneticFieldZ()};
 
           std::vector<int64_t> input_shape = {1, input_data.size()};
 
@@ -321,7 +333,8 @@ int32_t main(int32_t argc, char **argv) {
           cv::putText(img,
                       "Correct within last " +
                           std::to_string(perfChecker.getSize()) + " frames: " +
-                          std::to_string(perfChecker.getPercentage() * 100.0) + "%",
+                          std::to_string(perfChecker.getPercentage() * 100.0) +
+                          "%",
                       cv::Point(10, 30), cv::FONT_HERSHEY_DUPLEX, 0.5,
                       CV_RGB(255, 0, 0), 1);
 
