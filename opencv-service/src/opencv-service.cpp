@@ -306,12 +306,17 @@ int32_t main(int32_t argc, char **argv) {
                           output_node_names.data(), 1);
 
           float *output_data = output_tensors[0].GetTensorMutableData<float>();
-          int output_size =
-              output_tensors[0].GetTensorTypeAndShapeInfo().GetElementCount();
+
+          float prediction = output_data[0];
+          if (prediction > 0.22) {
+            prediction = 0.22;
+          } else if (prediction < -0.22) {
+            prediction = -0.22;
+          }
 
           if (gsr.groundSteering() != 0) {
             bool isWithinThreshold = isWithinPercentThreshold(
-                gsr.groundSteering(), output_data[0], 0.25);
+                gsr.groundSteering(), prediction, 0.25);
 
             perfChecker.add(isWithinThreshold);
             frames_processed++;
@@ -319,7 +324,7 @@ int32_t main(int32_t argc, char **argv) {
           }
 
           std::cout << "group_22;" << std::to_string(ts_micro) << ";"
-                    << output_data[0] << std::endl;
+                    << prediction << std::endl;
 
           cv::putText(
               img,
@@ -338,10 +343,22 @@ int32_t main(int32_t argc, char **argv) {
                       cv::Point(10, 30), cv::FONT_HERSHEY_DUPLEX, 0.5,
                       CV_RGB(255, 0, 0), 1);
 
-          // Display image on your screen.
+          cv::putText(img, "Prediction: " + std::to_string(prediction),
+                      cv::Point(10, 60), cv::FONT_HERSHEY_DUPLEX, 0.5,
+                      CV_RGB(255, 0, 0), 1);
+
           if (VERBOSE) {
             cv::imshow(sharedMemory->name().c_str(), img);
             cv::waitKey(1);
+
+            std::cout << "actual;" << std::to_string(ts_micro) << ";"
+                      << std::to_string(gsr.groundSteering()) << std::endl;
+
+            std::cout << "% correct: "
+                      << std::to_string(
+                             static_cast<float>(frames_within_threshold) /
+                             frames_processed * 100.0)
+                      << "%" << std::endl;
           }
         }
       }

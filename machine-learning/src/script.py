@@ -10,10 +10,11 @@ from sklearn.ensemble import StackingRegressor
 
 FOLDER_PATHS = ["../data/training_data/video-144821", "../data/training_data/video-145043",
                 "../data/training_data/video-145233", "../data/training_data/video-145641", "../data/training_data/video-150001"]
-TEST_VIDEO_INDEX = 1  # use n:th video for testing
+TEST_VIDEO_INDEX = None  # use n:th video for testing, or None to train on all videos
 
-test_video_path = FOLDER_PATHS[TEST_VIDEO_INDEX]
-del FOLDER_PATHS[TEST_VIDEO_INDEX]
+if TEST_VIDEO_INDEX is not None:
+    test_video_path = FOLDER_PATHS[TEST_VIDEO_INDEX]
+    del FOLDER_PATHS[TEST_VIDEO_INDEX]
 
 with open("../data/config/sensor_whitelist.txt") as f:
     SENSOR_WHITELIST = f.read().splitlines()
@@ -69,10 +70,12 @@ X_train.fillna(X_train.mean(), inplace=True)
 y_train = X_train["groundSteering"]
 X_train = X_train.filter(SENSOR_WHITELIST, axis=1)
 
-X_test = preprocess(test_video_path)
-X_test.fillna(X_test.mean(), inplace=True)
-y_test = X_test["groundSteering"]
-X_test = X_test.filter(SENSOR_WHITELIST, axis=1)
+
+if TEST_VIDEO_INDEX is not None:
+    X_test = preprocess(test_video_path)
+    X_test.fillna(X_test.mean(), inplace=True)
+    y_test = X_test["groundSteering"]
+    X_test = X_test.filter(SENSOR_WHITELIST, axis=1)
 
 columns = X_train.columns
 print("Columns used:")
@@ -86,7 +89,9 @@ param_grid = {
 }
 
 X_train = X_train.to_numpy().astype(np.float32)
-X_test = X_test.to_numpy().astype(np.float32)
+
+if TEST_VIDEO_INDEX is not None:
+    X_test = X_test.to_numpy().astype(np.float32)
 
 clr = RandomForestRegressor(random_state=42)
 
@@ -122,22 +127,25 @@ stacked_model = StackingRegressor(
 )
 
 stacked_model.fit(X_train, y_train)
-y_pred = stacked_model.predict(X_test)
 
-accuracy = stacked_model.score(X_test, y_test)
-print("Accuracy:", accuracy)
+if TEST_VIDEO_INDEX is not None:
+    y_pred = stacked_model.predict(X_test)
+    accuracy = stacked_model.score(X_test, y_test)
+    print("Accuracy:", accuracy)
 
-in_bounds_counter = 0
-for pred, actual in zip(y_pred, y_test):
-    if actual == 0.0:
-        continue
+    in_bounds_counter = 0
+    for pred, actual in zip(y_pred, y_test):
+        if actual == 0.0:
+            continue
 
-    lower_bound = min(actual * 0.75, actual * 1.25)
-    upper_bound = max(actual * 0.75, actual * 1.25)
+        lower_bound = min(actual * 0.75, actual * 1.25)
+        upper_bound = max(actual * 0.75, actual * 1.25)
 
-    if lower_bound < pred < upper_bound:
-        in_bounds_counter += 1
+        if lower_bound < pred < upper_bound:
+            in_bounds_counter += 1
 
-print("====================")
-print(f"{in_bounds_counter}/{len(y_test)} ({round(in_bounds_counter/len(y_test) * 100, 2)}%) of predictions (!= 0) are within 25% of the actual value")
-print("====================")
+    print("====================")
+    print(f"{in_bounds_counter}/{len(y_test)} ({round(in_bounds_counter/len(y_test) * 100, 2)}%) of predictions (!= 0) are within 25% of the actual value")
+    print("====================")
+else:
+    print("Not using any test data. Used all data to train to the model")
