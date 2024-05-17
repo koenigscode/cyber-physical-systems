@@ -188,8 +188,13 @@ int32_t main(int32_t argc, char **argv) {
           cv::rectangle(img, cv::Point(220, 140), cv::Point(440, 240),
                         cv::Vec3b(0, 0, 0), cv::FILLED);
         }
+
         // TODO: Here, you can add some code to check the sampleTimePoint when
         // the current frame was captured.
+
+        cluon::data::TimeStamp ts = sharedMemory->getTimeStamp().second;
+        int64_t ts_micro = cluon::time::toMicroseconds(ts);
+
         sharedMemory->unlock();
 
         // Get countours of the yellow cones
@@ -259,6 +264,8 @@ int32_t main(int32_t argc, char **argv) {
               }
             }
 
+            std::cout << std::to_string(ts_micro / 1000000) << ";"
+                      << std::to_string(ts_micro % 1000000) << ";";
             // If detected print yellow cones
             if (yellowCounter > 0) {
               std::cout << yellow;
