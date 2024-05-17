@@ -264,6 +264,10 @@ int32_t main(int32_t argc, char **argv) {
 
         sharedMemory->unlock();
 
+        // create a black square
+        cv::rectangle(img, cv::Point(220, 140), cv::Point(440, 240),
+                      cv::Vec3b(0, 0, 0), cv::FILLED);
+
         // yellow cone-shaped bojects are detected and drawn
         detectAndDrawCones(
             img, lowerYellow, upperYellow,
