@@ -1,0 +1,32 @@
+title: |md
+  # Group 22
+| {near: top-center}
+# direction: right
+
+
+VehicleView: {
+  label: <<component>> \n Vehicle View
+}
+VehicleView -> H264Decoder: "Encoded Video Frames [TCP]"
+
+H264Decoder: {
+  label: <<component>> \n H264 Decoder Service
+}
+
+H264Decoder -> SteeringService: "Decoded Video Frames [Shared Memory]"
+
+SteeringService: {
+  label: <<component>> \n Steering Service
+}
+
+MLService: {
+  label: <<component>> \n ML Service
+}
+
+MLService -> MLModel: generates
+SteeringService -> MLModel: Uses
+
+MLModel: {
+  shape: page
+  label: <<artifact>> \n ML Model (ONNX Format)
+}
