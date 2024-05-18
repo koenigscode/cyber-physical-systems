@@ -244,44 +244,41 @@ int32_t main(int32_t argc, char **argv) {
             // Count how many cones we detected
             unsigned int yellowCounter = 0;
             unsigned int blueCounter = 0;
+            unsigned int totalCounter = 0;
 
             // Iterate through the detected yellow cones
             for (auto massCenter : yellowMassCenters) {
               // Avoid printing trash values
-              if (massCenter.x != 0) {
+              if (massCenter.x != 0 && totalCounter < 2) {
                 yellow = yellow + std::to_string(massCenter.x) + ";" +
                          std::to_string(massCenter.y) + ";";
                 yellowCounter++;
+                totalCounter++;
               }
             }
             // Iterate through the detected blue cones
             for (auto massCenter : blueMassCenters) {
               // Avoid printing trash values
-              if (massCenter.x != 0) {
+              if (massCenter.x != 0 && totalCounter < 2) {
                 blue = blue + std::to_string(massCenter.x) + ";" +
                        std::to_string(massCenter.y) + ";";
                 blueCounter++;
+                totalCounter++;
               }
+            }
+
+            while (totalCounter < 2) {
+              blue = blue + "NaN;NaN;";
+              totalCounter++;
             }
 
             std::cout << std::to_string(ts_micro / 1000000) << ";"
                       << std::to_string(ts_micro % 1000000) << ";";
-            // If detected print yellow cones
-            if (yellowCounter > 0) {
-              std::cout << yellow;
-            } else {
-              std::cout << "NaN;";
-            }
 
-            // If detected print blue cones
-            if (blueCounter > 0) {
-              std::cout << blue;
-            } else {
-              std::cout << "NaN;";
-            }
+            std::cout << yellow;
+            std::cout << blue;
+            std::cout << std::endl;
           }
-
-          std::cout << std::endl;
         }
 
         // Display image on your screen.
