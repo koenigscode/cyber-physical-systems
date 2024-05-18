@@ -1,0 +1,11 @@
+angularVelocityX
+angularVelocityY
+angularVelocityZ
+accelerationX
+accelerationY
+accelerationZ
+voltage
+position
+magneticFieldX
+magneticFieldY
+magneticFieldZ

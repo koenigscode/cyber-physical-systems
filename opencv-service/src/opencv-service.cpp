@@ -27,11 +27,51 @@
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 
+#include <onnxruntime_cxx_api.h>
+
+#include <cmath>
+#include <deque>
 #include <iostream>
 #include <mutex>
 #include <ostream>
 #include <string>
 #include <vector>
+
+class CurrentPerformanceChecker {
+private:
+  std::deque<bool> within_threshold;
+  size_t capacity;
+
+public:
+  CurrentPerformanceChecker(size_t capacity) : capacity(capacity) {}
+
+  void add(bool value) {
+    within_threshold.push_back(value);
+    if (within_threshold.size() > capacity) {
+      within_threshold.pop_front();
+    }
+  }
+
+  size_t getSize() { return capacity; }
+
+  float getPercentage() const {
+    size_t trueCount = 0;
+    for (bool val : within_threshold) {
+      if (val) {
+        trueCount++;
+      }
+    }
+    return static_cast<float>(trueCount) / within_threshold.size();
+  }
+};
+
+bool isWithinPercentThreshold(float target, float prediction,
+                              float percentage) {
+  float threshold = std::abs(target * percentage);
+  float diff = std::abs(target - prediction);
+
+  return diff <= threshold;
+}
 
 // dectecting and drawing conical object
 std::vector<std::vector<cv::Point>> detectCones(cv::Mat &frame,
@@ -166,6 +206,80 @@ int32_t main(int32_t argc, char **argv) {
       od4.dataTrigger(opendlv::proxy::GroundSteeringRequest::ID(),
                       onGroundSteeringRequest);
 
+      opendlv::proxy::AngularVelocityReading angularV;
+      std::mutex angularVMutex;
+      auto onAngularVRequest = [&angularV,
+                                &angularVMutex](cluon::data::Envelope &&env) {
+        std::lock_guard<std::mutex> lck(angularVMutex);
+        angularV =
+            cluon::extractMessage<opendlv::proxy::AngularVelocityReading>(
+                std::move(env));
+      };
+
+      od4.dataTrigger(opendlv::proxy::AngularVelocityReading::ID(),
+                      onAngularVRequest);
+
+      opendlv::proxy::AccelerationReading accel;
+      std::mutex accelMutex;
+      auto onAccelRequest = [&accel, &accelMutex](cluon::data::Envelope &&env) {
+        std::lock_guard<std::mutex> lck(accelMutex);
+        accel = cluon::extractMessage<opendlv::proxy::AccelerationReading>(
+            std::move(env));
+      };
+
+      od4.dataTrigger(opendlv::proxy::AccelerationReading::ID(),
+                      onAccelRequest);
+
+      opendlv::proxy::VoltageReading voltage;
+      std::mutex voltageMutex;
+      auto onVoltageRequest = [&voltage,
+                               &voltageMutex](cluon::data::Envelope &&env) {
+        std::lock_guard<std::mutex> lck(voltageMutex);
+        voltage = cluon::extractMessage<opendlv::proxy::VoltageReading>(
+            std::move(env));
+      };
+
+      od4.dataTrigger(opendlv::proxy::VoltageReading::ID(), onVoltageRequest);
+
+      opendlv::proxy::PedalPositionReading pedal;
+      std::mutex pedalMutex;
+      auto onPedalRequest = [&pedal, &pedalMutex](cluon::data::Envelope &&env) {
+        std::lock_guard<std::mutex> lck(pedalMutex);
+        pedal = cluon::extractMessage<opendlv::proxy::PedalPositionReading>(
+            std::move(env));
+      };
+
+      od4.dataTrigger(opendlv::proxy::PedalPositionReading::ID(),
+                      onPedalRequest);
+
+      opendlv::proxy::MagneticFieldReading mag;
+      std::mutex magMutex;
+      auto onMagneticFieldReading = [&mag,
+                                     &magMutex](cluon::data::Envelope &&env) {
+        std::lock_guard<std::mutex> lck(magMutex);
+        mag = cluon::extractMessage<opendlv::proxy::MagneticFieldReading>(
+            std::move(env));
+      };
+
+      od4.dataTrigger(opendlv::proxy::PedalPositionReading::ID(),
+                      onPedalRequest);
+
+      std::string model_path = "./clr.onnx";
+      Ort::Env env(ORT_LOGGING_LEVEL_WARNING, "InferenceEnv");
+      Ort::SessionOptions session_options;
+      Ort::Session session(env, model_path.c_str(), session_options);
+
+      std::vector<const char *> input_node_names = {"X"};
+      std::vector<const char *> output_node_names = {"variable"};
+
+      Ort::MemoryInfo memory_info =
+          Ort::MemoryInfo::CreateCpu(OrtDeviceAllocator, OrtMemTypeDefault);
+
+      int frames_processed{0};
+      int frames_within_threshold{0};
+
+      CurrentPerformanceChecker perfChecker(20);
+
       // Endless loop; end the program by pressing Ctrl-C.
       while (od4.isRunning()) {
         // OpenCV data structure to hold an image.
@@ -189,9 +303,6 @@ int32_t main(int32_t argc, char **argv) {
                         cv::Vec3b(0, 0, 0), cv::FILLED);
         }
 
-        // TODO: Here, you can add some code to check the sampleTimePoint when
-        // the current frame was captured.
-
         cluon::data::TimeStamp ts = sharedMemory->getTimeStamp().second;
         int64_t ts_micro = cluon::time::toMicroseconds(ts);
 
@@ -207,12 +318,10 @@ int32_t main(int32_t argc, char **argv) {
 
         // Get mass centers of the yellow cones
         std::vector<cv::Point2f> yellowMassCenters =
-
             getMassCenters(yellowContours);
 
         // Get mass centers of the blue cones
         std::vector<cv::Point2f> blueMassCenters =
-
             getMassCenters(blueContours);
 
         // For each mass center add a circle to the image
@@ -225,15 +334,15 @@ int32_t main(int32_t argc, char **argv) {
           cv::circle(img, massCenter, 5, cv::Scalar(0, 255, 0), -1);
         }
 
-        // TODO: Do something with the frame.
-        // Example: Draw a red rectangle and display image.
-        // cv::rectangle(img, cv::Point(50, 50), cv::Point(100, 100),
-        //              cv::Scalar(0, 0, 255));
-
         // If you want to access the latest received ground steering, don't
         // forget to lock the mutex:
         {
-          std::lock_guard<std::mutex> lck(gsrMutex);
+          std::lock_guard<std::mutex> gsrLock(gsrMutex);
+          std::lock_guard<std::mutex> angularVLock(angularVMutex);
+          std::lock_guard<std::mutex> accelLock(accelMutex);
+          std::lock_guard<std::mutex> voltageLock(voltageMutex);
+          std::lock_guard<std::mutex> pedalLock(pedalMutex);
+          std::lock_guard<std::mutex> magLock(magMutex);
 
           std::cout << "groundSteering = " << gsr.groundSteering() << ";";
           if (VERBOSE) {
@@ -281,10 +390,82 @@ int32_t main(int32_t argc, char **argv) {
           }
         }
 
-        // Display image on your screen.
+        std::vector<float> input_data = {
+            angularV.angularVelocityX(), angularV.angularVelocityY(),
+            angularV.angularVelocityZ(), accel.accelerationX(),
+            accel.accelerationY(),       accel.accelerationZ(),
+            voltage.voltage(),           pedal.position(),
+            mag.magneticFieldX(),        mag.magneticFieldY(),
+            mag.magneticFieldZ()};
+
+        std::vector<int64_t> input_shape = {1, input_data.size()};
+
+        Ort::Value input_tensor = Ort::Value::CreateTensor<float>(
+            memory_info, input_data.data(), input_data.size(),
+            input_shape.data(), input_shape.size());
+
+        std::vector<Ort::Value> input_tensors;
+        input_tensors.push_back(std::move(input_tensor));
+
+        auto output_tensors =
+            session.Run(Ort::RunOptions{nullptr}, input_node_names.data(),
+                        input_tensors.data(), input_tensors.size(),
+                        output_node_names.data(), 1);
+
+        float *output_data = output_tensors[0].GetTensorMutableData<float>();
+
+        float prediction = output_data[0];
+        if (prediction > 0.22) {
+          prediction = 0.22;
+        } else if (prediction < -0.22) {
+          prediction = -0.22;
+        }
+
+        if (gsr.groundSteering() != 0) {
+          bool isWithinThreshold =
+              isWithinPercentThreshold(gsr.groundSteering(), prediction, 0.25);
+
+          perfChecker.add(isWithinThreshold);
+          frames_processed++;
+          frames_within_threshold += isWithinThreshold;
+        }
+
+        std::cout << "group_22;" << std::to_string(ts_micro) << ";"
+                  << prediction << std::endl;
+
+        cv::putText(
+            img,
+            "Average correct: " +
+                std::to_string(static_cast<float>(frames_within_threshold) /
+                               frames_processed * 100.0) +
+                "%",
+            cv::Point(10, 10), cv::FONT_HERSHEY_DUPLEX, 0.5, CV_RGB(255, 0, 0),
+            1);
+
+        cv::putText(img,
+                    "Correct within last " +
+                        std::to_string(perfChecker.getSize()) + " frames: " +
+                        std::to_string(perfChecker.getPercentage() * 100.0) +
+                        "%",
+                    cv::Point(10, 30), cv::FONT_HERSHEY_DUPLEX, 0.5,
+                    CV_RGB(255, 0, 0), 1);
+
+        cv::putText(img, "Prediction: " + std::to_string(prediction),
+                    cv::Point(10, 60), cv::FONT_HERSHEY_DUPLEX, 0.5,
+                    CV_RGB(255, 0, 0), 1);
+
         if (VERBOSE) {
           cv::imshow(sharedMemory->name().c_str(), img);
           cv::waitKey(1);
+
+          std::cout << "actual;" << std::to_string(ts_micro) << ";"
+                    << std::to_string(gsr.groundSteering()) << std::endl;
+
+          std::cout << "% correct: "
+                    << std::to_string(
+                           static_cast<float>(frames_within_threshold) /
+                           frames_processed * 100.0)
+                    << "%" << std::endl;
         }
       }
     }

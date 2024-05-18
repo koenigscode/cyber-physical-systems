@@ -1,2 +1,4 @@
 .DS_Store
+data/training_data
+opencv-service/lib/models
 
