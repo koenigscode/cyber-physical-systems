@@ -39,13 +39,13 @@ docker compose up vehicle-view h264decoder -d
 
 8. Start the opencv-service:
 ```bash
-docker compose run --build opencv_service
+docker compose run --build --rm opencv_service
 ```
 
 Make sure that your `DISPLAY` environment variable is set and x11 forwarding is enabled.
 For example, on MacOS using XQuartz, this might look something like this:
 ```bash
-xhost + && DISPLAY=docker.for.mac.host.internal:0 docker compose run --build opencv_service
+xhost + && DISPLAY=docker.for.mac.host.internal:0 docker compose run --build --rm opencv_service
 ```
 
 
