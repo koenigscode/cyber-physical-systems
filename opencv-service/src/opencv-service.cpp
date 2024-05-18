@@ -23,16 +23,21 @@
 #include "opendlv-standard-message-set.hpp"
 
 // Include the GUI and image processing header files from OpenCV
+#include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 
 #include <iostream>
 #include <mutex>
+#include <ostream>
+#include <string>
+#include <vector>
 
 // dectecting and drawing conical object
-void detectAndDrawCones(cv::Mat &frame, const cv::Scalar &lowerColor,
-                        const cv::Scalar &upperColor,
-                        const cv::Scalar &drawColor) {
+std::vector<std::vector<cv::Point>> detectCones(cv::Mat &frame,
+                                                const cv::Scalar &lowerColor,
+                                                const cv::Scalar &upperColor,
+                                                const cv::Scalar &drawColor) {
   // convert to HSV color empty
   cv::Mat hsv;
   cv::cvtColor(frame, hsv, cv::COLOR_BGR2HSV);
@@ -43,21 +48,55 @@ void detectAndDrawCones(cv::Mat &frame, const cv::Scalar &lowerColor,
 
   // find contours in the mask
   std::vector<std::vector<cv::Point>> contours;
-  cv::findContours(mask, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
+  cv::findContours(mask, contours, cv::RETR_TREE, cv::CHAIN_APPROX_SIMPLE,
+                   cv::Point(0, 0));
 
-  // detecting and drawing conical objects
-  for (const auto &contour : contours) {
-    // approximate contour
-    std::vector<cv::Point> approx;
-    cv::approxPolyDP(contour, approx, cv::arcLength(contour, true) * 0.02,
-                     true);
+  return contours;
+}
 
-    // computes the bounding box of the contour
-    cv::Rect boundRect = cv::boundingRect(contour);
+std::vector<cv::Point2f>
+getMassCenters(std::vector<std::vector<cv::Point>> contours) {
 
-    // drawing the bounding box
-    cv::rectangle(frame, boundRect.tl(), boundRect.br(), drawColor, 2);
+  const float CLUSTER_RANGE = 25.0;
+
+  std::vector<cv::Point2f> massCenters(contours.size());
+  cv::Point2f massCenter;
+  cv::Point2f prevMassCenter;
+
+  unsigned int counter = 0;
+
+  for (auto &contour : contours) {
+
+    // Getting the moments
+    cv::Moments yellowMoments = cv::moments(contour, false);
+    // Check to avoid dividing by zero
+    if (yellowMoments.m00 != 0) {
+      // Mass centers
+      massCenter = cv::Point2f(yellowMoments.m10 / yellowMoments.m00,
+                               yellowMoments.m01 / yellowMoments.m00);
+      // Do no add trash values
+      if (massCenter.y != 0 && massCenter.x != 0) {
+        // Prevent out of index out of bounds errors
+        if (counter > 0) {
+          // Compare the current mass center to the previous one to see if it is
+          // in the same cone
+          if (std::abs(massCenter.y - prevMassCenter.y) > CLUSTER_RANGE &&
+              std::abs(massCenter.x - prevMassCenter.x) > CLUSTER_RANGE) {
+            // Only add the mass center to our list if it is on a different cone
+            massCenters.push_back(massCenter);
+          }
+        } else {
+          // Initial loop
+          massCenters.push_back(massCenter);
+        }
+      }
+      // Remember previous massCenter
+      prevMassCenter = massCenter;
+    }
+    counter++;
   }
+
+  return massCenters;
 }
 
 int32_t main(int32_t argc, char **argv) {
@@ -122,8 +161,6 @@ int32_t main(int32_t argc, char **argv) {
         std::lock_guard<std::mutex> lck(gsrMutex);
         gsr = cluon::extractMessage<opendlv::proxy::GroundSteeringRequest>(
             std::move(env));
-        std::cout << "lambda: groundSteering = " << gsr.groundSteering()
-                  << std::endl;
       };
 
       od4.dataTrigger(opendlv::proxy::GroundSteeringRequest::ID(),
@@ -141,27 +178,52 @@ int32_t main(int32_t argc, char **argv) {
         // Lock the shared memory.
         sharedMemory->lock();
         {
-          // Copy the pixels from the shared memory into our own data structure.
+          // Copy the pixels from the shared memory into our own data
+          // structure.
           cv::Mat wrapped(HEIGHT, WIDTH, CV_8UC4, sharedMemory->data());
           fullImg = wrapped.clone();
           img = fullImg(cv::Rect(0, HEIGHT / 2, WIDTH, HEIGHT / 2));
+
+          // create a black rectangle
+          cv::rectangle(img, cv::Point(220, 140), cv::Point(440, 240),
+                        cv::Vec3b(0, 0, 0), cv::FILLED);
         }
+
         // TODO: Here, you can add some code to check the sampleTimePoint when
         // the current frame was captured.
+
+        cluon::data::TimeStamp ts = sharedMemory->getTimeStamp().second;
+        int64_t ts_micro = cluon::time::toMicroseconds(ts);
+
         sharedMemory->unlock();
 
-        // create a black square
-        cv::rectangle(img, cv::Point(220, 140), cv::Point(440, 240),
-                      cv::Vec3b(0, 0, 0), cv::FILLED);
+        // Get countours of the yellow cones
+        std::vector<std::vector<cv::Point>> yellowContours =
+            detectCones(img, lowerYellow, upperYellow, cv::Scalar(0, 255, 255));
 
-        // yellow cone-shaped bojects are detected and drawn
-        detectAndDrawCones(
-            img, lowerYellow, upperYellow,
-            cv::Scalar(0, 255, 255)); // use the yellow color drawn
-        // detect and draw blue cone-shaped objects
-        detectAndDrawCones(
-            img, lowerBlue, upperBlue,
-            cv::Scalar(255, 0, 0)); // use the bule color to drawn
+        // Get countours of the blue cones
+        std::vector<std::vector<cv::Point>> blueContours =
+            detectCones(img, lowerBlue, upperBlue, cv::Scalar(255, 0, 0));
+
+        // Get mass centers of the yellow cones
+        std::vector<cv::Point2f> yellowMassCenters =
+
+            getMassCenters(yellowContours);
+
+        // Get mass centers of the blue cones
+        std::vector<cv::Point2f> blueMassCenters =
+
+            getMassCenters(blueContours);
+
+        // For each mass center add a circle to the image
+        for (auto massCenter : yellowMassCenters) {
+          cv::circle(img, massCenter, 5, cv::Scalar(0, 255, 0), -1);
+        }
+
+        // For each mass center add a circle to the image
+        for (auto massCenter : blueMassCenters) {
+          cv::circle(img, massCenter, 5, cv::Scalar(0, 255, 0), -1);
+        }
 
         // TODO: Do something with the frame.
         // Example: Draw a red rectangle and display image.
@@ -172,8 +234,51 @@ int32_t main(int32_t argc, char **argv) {
         // forget to lock the mutex:
         {
           std::lock_guard<std::mutex> lck(gsrMutex);
-          std::cout << "main: groundSteering = " << gsr.groundSteering()
-                    << std::endl;
+
+          std::cout << "groundSteering = " << gsr.groundSteering() << ";";
+          if (VERBOSE) {
+            // Store cone coordinates (mass centers)
+            std::string yellow;
+            std::string blue;
+
+            // Count how many cones we detected
+            unsigned int yellowCounter = 0;
+            unsigned int blueCounter = 0;
+            unsigned int totalCounter = 0;
+
+            // Iterate through the detected yellow cones
+            for (auto massCenter : yellowMassCenters) {
+              // Avoid printing trash values
+              if (massCenter.x != 0 && totalCounter < 2) {
+                yellow = yellow + std::to_string(massCenter.x) + ";" +
+                         std::to_string(massCenter.y) + ";";
+                yellowCounter++;
+                totalCounter++;
+              }
+            }
+            // Iterate through the detected blue cones
+            for (auto massCenter : blueMassCenters) {
+              // Avoid printing trash values
+              if (massCenter.x != 0 && totalCounter < 2) {
+                blue = blue + std::to_string(massCenter.x) + ";" +
+                       std::to_string(massCenter.y) + ";";
+                blueCounter++;
+                totalCounter++;
+              }
+            }
+
+            while (totalCounter < 2) {
+              blue = blue + "NaN;NaN;";
+              totalCounter++;
+            }
+
+            std::cout << std::to_string(ts_micro / 1000000) << ";"
+                      << std::to_string(ts_micro % 1000000) << ";";
+
+            std::cout << yellow;
+            std::cout << blue;
+            std::cout << std::endl;
+          }
         }
 
         // Display image on your screen.
