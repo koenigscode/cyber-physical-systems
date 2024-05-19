@@ -42,19 +42,26 @@ COPY ./lib/onnxruntime /usr/onnxruntime
 
 RUN echo "Building for ${TARGETPLATFORM}"
 
-RUN if [ "${TARGETPLATFORM}" = "linux/arm64" ]; then \
-    mv /usr/onnxruntime/lib/arm64/* /usr/onnxruntime/lib/; \
-    elif [ "${TARGETPLATFORM}" = "linux/arm/v7" ]; then \
-    mv /usr/onnxruntime/lib/arm32/* /usr/onnxruntime/lib/; \
-    else \
-    mv /usr/onnxruntime/lib/amd/* /usr/onnxruntime/lib/; \
-    fi
-
-
-RUN ldconfig /usr/onnxruntime/lib
 
 ADD . /opt/sources
 WORKDIR /opt/sources
+
+RUN mkdir -p /usr/onnxruntime/include/
+RUN mkdir -p /usr/onnxruntime/lib/
+
+RUN if [ "${TARGETPLATFORM}" = "linux/arm64" ]; then \
+    mv /usr/onnxruntime/arm64/lib/* /usr/onnxruntime/lib/; \
+    mv /usr/onnxruntime/arm64/include/* /usr/onnxruntime/include/; \
+    elif [ "${TARGETPLATFORM}" = "linux/arm/v7" ]; then \
+    mv /usr/onnxruntime/arm32/lib/* /usr/onnxruntime/lib/; \
+    mv /usr/onnxruntime/arm32/include/* /usr/onnxruntime/include/; \
+    else \
+    mv /usr/onnxruntime/amd/lib/* /usr/onnxruntime/lib/; \
+    mv /usr/onnxruntime/amd/include/* /usr/onnxruntime/include/; \
+    fi
+
+RUN ldconfig /usr/onnxruntime/lib/
+
 RUN cd /opt/sources && \
     cd ./tests && \
     wget https://github.com/catchorg/Catch2/releases/download/v2.13.10/catch.hpp && \
