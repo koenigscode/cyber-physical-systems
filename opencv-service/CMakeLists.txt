@@ -90,6 +90,11 @@ endif()
 find_package(OpenCV REQUIRED core highgui imgproc)
 include_directories(SYSTEM ${OpenCV_INCLUDE_DIRS})
 set(LIBRARIES ${LIBRARIES} ${OpenCV_LIBS})
+set(LIBRARIES ${LIBRARIES} onnxruntime)
+
+# Set up onnx runtime
+include_directories(/usr/onnxruntime/include)
+link_directories(/usr/onnxruntime/lib)
 
 ################################################################################
 # Create executable.
