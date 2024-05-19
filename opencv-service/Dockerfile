@@ -26,13 +26,15 @@ RUN apt-get update -y && \
 
 # Install the development libraries for OpenCV
 RUN apt-get install -y --no-install-recommends \
-        ca-certificates \
-        cmake \
-        build-essential \
-        libopencv-dev \
-        gcovr \
-        python3 python3-distutils \
-        wget
+    ca-certificates \
+    cmake \
+    build-essential \
+    libopencv-dev \
+    gcovr \
+    python3 python3-pip \
+    wget 
+
+RUN apt install python3-setuptools
 
 ARG TARGETPLATFORM
 
@@ -40,16 +42,26 @@ COPY ./lib/onnxruntime /usr/onnxruntime
 
 RUN echo "Building for ${TARGETPLATFORM}"
 
-RUN if [ "${TARGETPLATFORM}" = "linux/arm64" ] || [ "${TARGETPLATFORM}" = "linux/arm/v7" ]; then \
-        mv /usr/onnxruntime/lib/arm/* /usr/onnxruntime/lib/; \
-    else \
-        mv /usr/onnxruntime/lib/amd/* /usr/onnxruntime/lib/; \
-    fi
-
-RUN ldconfig /usr/onnxruntime/lib
 
 ADD . /opt/sources
 WORKDIR /opt/sources
+
+RUN mkdir -p /usr/onnxruntime/include/
+RUN mkdir -p /usr/onnxruntime/lib/
+
+RUN if [ "${TARGETPLATFORM}" = "linux/arm64" ]; then \
+    mv /usr/onnxruntime/arm64/lib/* /usr/onnxruntime/lib/; \
+    mv /usr/onnxruntime/arm64/include/* /usr/onnxruntime/include/; \
+    elif [ "${TARGETPLATFORM}" = "linux/arm/v7" ]; then \
+    mv /usr/onnxruntime/arm32/lib/* /usr/onnxruntime/lib/; \
+    mv /usr/onnxruntime/arm32/include/* /usr/onnxruntime/include/; \
+    else \
+    mv /usr/onnxruntime/amd/lib/* /usr/onnxruntime/lib/; \
+    mv /usr/onnxruntime/amd/include/* /usr/onnxruntime/include/; \
+    fi
+
+RUN ldconfig /usr/onnxruntime/lib/
+
 RUN cd /opt/sources && \
     cd ./tests && \
     wget https://github.com/catchorg/Catch2/releases/download/v2.13.10/catch.hpp && \
@@ -75,9 +87,9 @@ RUN apt-get update -y && \
     apt-get dist-upgrade -y
 
 RUN apt-get install -y --fix-missing --no-install-recommends \
-        libopencv-core3.2 \
-        libopencv-highgui3.2 \
-        libopencv-imgproc3.2 
+    libopencv-core406t64 \
+    libopencv-highgui406t64 \
+    libopencv-imgproc406t64 
 
 COPY --from=builder /usr/onnxruntime /usr/onnxruntime
 
