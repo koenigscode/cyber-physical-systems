@@ -4,10 +4,11 @@
 
 
 ## Requirements
-- Docker, docker compose
+- Docker
+- docker compose (recommended for local development)
 
 
-## How to check out the repository into a clean folder and how to build it
+## How to check out the repository into a clean folder
 1. Go to the location where you want to store this project
 
 2. Copy to your terminal
@@ -23,22 +24,47 @@ git clone git@git.chalmers.se:courses/dit638/students/2024-group-22.git
 cd 2024-group-22
 ```
 
-5. Train the ML model:
+## Running as an examiner
+If you're the examiner, you probably already have the vehicle_view and h264decoder running (otherwise you can refer to the next section and simply use docker compose).
+
+Running it should work as you'd expect, meaning like documented in A13:
+
+Running without UI: 
+```bash
+docker run --rm -ti --ipc=host -v /tmp:/tmp registry.git.chalmers.se/courses/dit638/students/2024-group-22:<tag> --cid=253 --name=img --width=640 --height=480
+```
+
+Running with UI:
+```bash
+docker run --rm -ti --ipc=host -e DISPLAY="$DISPLAY" -v /tmp:/tmp registry.git.chalmers.se/courses/dit638/students/2024-group-22:<tag> --cid=253 --name=img --width=640 --height=480 --verbose
+```
+
+Make sure to replace `<tag>` in the image URL and that your environment variable `$DISPLAY` is set.
+
+Depending on your setup, you might also have to set `--net=host`
+
+This should work for you, but some of our groups members had trouble running it like this, since the buildx build resulted in a different image then building it with "normal" docker with the `--platform` flag set to the desired architecture. In case this doesn't work for you (i.e. QT problems or the prediction is always the same), please refer to the next section using docker-compose.
+
+## Running using docker compose
+
+Training the ML model:
+
+This step is optional, since the built model is commited into source control. So you can skip this step unless you've changed the ML code.
 ```bash
 docker compose run --build train
 ```
 
-This will save the generated ML model in ONNX format in `opencv-service/lib/models`
+This will save the generated ML model in ONNX format in `opencv-service/lib/models`.
 
 
-6. Start the vehicle view and h264decoder microservices:
+1. Start the vehicle view and h264decoder microservices:
 ```bash
 docker compose up vehicle-view h264decoder -d
 ```
 
-7. Play some frames in the Web UI, so that there is data in the shared memory
+2. Play some frames in the Web UI, so that there is data in the shared memory
 
-8. Start the opencv-service:
+3. Start the opencv-service:
 ```bash
 docker compose run --build --rm opencv_service
 ```
@@ -48,6 +74,8 @@ For example, on MacOS using XQuartz, this might look something like this:
 ```bash
 xhost + && DISPLAY=docker.for.mac.host.internal:0 docker compose run --build --rm opencv_service
 ```
+
+Depending on your setup (if this doesn't work), you might have to set `network_mode: host` for the services in `docker-compose.yml`
 
 
 ## Commit messages style
