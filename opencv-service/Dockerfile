@@ -14,7 +14,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 # First stage for building the software:
-FROM ubuntu:24.04 as builder
+FROM registry.git.chalmers.se/courses/dit638/students/2024-group-22/ubuntu as builder
 MAINTAINER Christian Berger "christian.berger@gu.se"
 
 ENV DEBIAN_FRONTEND noninteractive
@@ -77,7 +77,7 @@ FROM scratch as copytohost
 COPY --from=builder /tmp/coverage.xml .
 
 # Second stage for packaging the software into a software bundle:
-FROM ubuntu:24.04
+FROM registry.git.chalmers.se/courses/dit638/students/2024-group-22/ubuntu
 MAINTAINER Christian Berger "christian.berger@gu.se"
 
 ENV DEBIAN_FRONTEND noninteractive
