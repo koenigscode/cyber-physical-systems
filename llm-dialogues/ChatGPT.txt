@@ -1,0 +1,3 @@
+https://chatgpt.com/share/5cc08dd1-a796-4907-af8d-736a4a415858 - ways to improve our model's accuracy, ensemble learning
+https://chatgpt.com/share/ee774dff-a15e-4ef6-9d17-713acd42591d - tools and technology we can use in the project
+https://chatgpt.com/share/92b0e6ee-cf61-4475-a7c9-3371d5ff7978 - techniques to detect cones, linear regression model, polynomials, and kanban board 
