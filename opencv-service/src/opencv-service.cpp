@@ -31,12 +31,6 @@
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 
-#include <cmath>
-#include <iostream>
-#include <mutex>
-#include <ostream>
-#include <string>
-
 bool isWithinPercentThreshold(float target, float prediction,
                               float percentage) {
   float threshold = std::abs(target * percentage);
@@ -165,7 +159,6 @@ int32_t main(int32_t argc, char **argv) {
 
       od4.dataTrigger(opendlv::proxy::PedalPositionReading::ID(),
                       onPedalRequest);
-
 
       int frames_processed{0};
       int frames_within_threshold{0};

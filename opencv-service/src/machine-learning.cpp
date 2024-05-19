@@ -1,6 +1,5 @@
 #include "machine-learning.hpp"
 
-
 #include "cluon-complete.hpp"
 #include <onnxruntime_cxx_api.h>
 
