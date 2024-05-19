@@ -10,7 +10,7 @@ from sklearn.ensemble import StackingRegressor
 
 FOLDER_PATHS = ["../data/training_data/video-144821", "../data/training_data/video-145043",
                 "../data/training_data/video-145233", "../data/training_data/video-145641", "../data/training_data/video-150001"]
-TEST_VIDEO_INDEX = None  # use n:th video for testing, or None to train on all videos
+TEST_VIDEO_INDEX = 4  # use n:th video for testing, or None to train on all videos
 
 if TEST_VIDEO_INDEX is not None:
     test_video_path = FOLDER_PATHS[TEST_VIDEO_INDEX]

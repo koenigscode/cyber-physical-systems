@@ -34,8 +34,6 @@
 #include <iostream>
 #include <mutex>
 #include <ostream>
-#include <string>
-#include <vector>
 
 class CurrentPerformanceChecker {
 private:

@@ -14,7 +14,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 # First stage for building the software:
-FROM ubuntu:18.04 as builder
+FROM ubuntu:24.04 as builder
 MAINTAINER Christian Berger "christian.berger@gu.se"
 
 ENV DEBIAN_FRONTEND noninteractive
@@ -26,13 +26,15 @@ RUN apt-get update -y && \
 
 # Install the development libraries for OpenCV
 RUN apt-get install -y --no-install-recommends \
-        ca-certificates \
-        cmake \
-        build-essential \
-        libopencv-dev \
-        gcovr \
-        python3 python3-distutils \
-        wget
+    ca-certificates \
+    cmake \
+    build-essential \
+    libopencv-dev \
+    gcovr \
+    python3 python3-pip \
+    wget 
+
+RUN apt install python3-setuptools
 
 ARG TARGETPLATFORM
 
@@ -40,11 +42,14 @@ COPY ./lib/onnxruntime /usr/onnxruntime
 
 RUN echo "Building for ${TARGETPLATFORM}"
 
-RUN if [ "${TARGETPLATFORM}" = "linux/arm64" ] || [ "${TARGETPLATFORM}" = "linux/arm/v7" ]; then \
-        mv /usr/onnxruntime/lib/arm/* /usr/onnxruntime/lib/; \
+RUN if [ "${TARGETPLATFORM}" = "linux/arm64" ]; then \
+    mv /usr/onnxruntime/lib/arm64/* /usr/onnxruntime/lib/; \
+    elif [ "${TARGETPLATFORM}" = "linux/arm/v7" ]; then \
+    mv /usr/onnxruntime/lib/arm32/* /usr/onnxruntime/lib/; \
     else \
-        mv /usr/onnxruntime/lib/amd/* /usr/onnxruntime/lib/; \
+    mv /usr/onnxruntime/lib/amd/* /usr/onnxruntime/lib/; \
     fi
+
 
 RUN ldconfig /usr/onnxruntime/lib
 
@@ -65,7 +70,7 @@ FROM scratch as copytohost
 COPY --from=builder /tmp/coverage.xml .
 
 # Second stage for packaging the software into a software bundle:
-FROM ubuntu:18.04
+FROM ubuntu:24.04
 MAINTAINER Christian Berger "christian.berger@gu.se"
 
 ENV DEBIAN_FRONTEND noninteractive
@@ -75,9 +80,9 @@ RUN apt-get update -y && \
     apt-get dist-upgrade -y
 
 RUN apt-get install -y --fix-missing --no-install-recommends \
-        libopencv-core3.2 \
-        libopencv-highgui3.2 \
-        libopencv-imgproc3.2 
+    libopencv-core406t64 \
+    libopencv-highgui406t64 \
+    libopencv-imgproc406t64 
 
 COPY --from=builder /usr/onnxruntime /usr/onnxruntime
 
