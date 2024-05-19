@@ -15,6 +15,10 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "cone-detector.hpp"
+#include "current-performance-checker.hpp"
+#include "machine-learning.hpp"
+
 // Include the single-file, header-only middleware libcluon to create
 // high-performance microservices
 #include "cluon-complete.hpp"
@@ -27,41 +31,11 @@
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 
-#include <onnxruntime_cxx_api.h>
-
 #include <cmath>
-#include <deque>
 #include <iostream>
 #include <mutex>
 #include <ostream>
-
-class CurrentPerformanceChecker {
-private:
-  std::deque<bool> within_threshold;
-  size_t capacity;
-
-public:
-  CurrentPerformanceChecker(size_t capacity) : capacity(capacity) {}
-
-  void add(bool value) {
-    within_threshold.push_back(value);
-    if (within_threshold.size() > capacity) {
-      within_threshold.pop_front();
-    }
-  }
-
-  size_t getSize() { return capacity; }
-
-  float getPercentage() const {
-    size_t trueCount = 0;
-    for (bool val : within_threshold) {
-      if (val) {
-        trueCount++;
-      }
-    }
-    return static_cast<float>(trueCount) / within_threshold.size();
-  }
-};
+#include <string>
 
 bool isWithinPercentThreshold(float target, float prediction,
                               float percentage) {
@@ -69,72 +43,6 @@ bool isWithinPercentThreshold(float target, float prediction,
   float diff = std::abs(target - prediction);
 
   return diff <= threshold;
-}
-
-// dectecting and drawing conical object
-std::vector<std::vector<cv::Point>> detectCones(cv::Mat &frame,
-                                                const cv::Scalar &lowerColor,
-                                                const cv::Scalar &upperColor,
-                                                const cv::Scalar &drawColor) {
-  // convert to HSV color empty
-  cv::Mat hsv;
-  cv::cvtColor(frame, hsv, cv::COLOR_BGR2HSV);
-
-  // create the color mask
-  cv::Mat mask;
-  cv::inRange(hsv, lowerColor, upperColor, mask);
-
-  // find contours in the mask
-  std::vector<std::vector<cv::Point>> contours;
-  cv::findContours(mask, contours, cv::RETR_TREE, cv::CHAIN_APPROX_SIMPLE,
-                   cv::Point(0, 0));
-
-  return contours;
-}
-
-std::vector<cv::Point2f>
-getMassCenters(std::vector<std::vector<cv::Point>> contours) {
-
-  const float CLUSTER_RANGE = 25.0;
-
-  std::vector<cv::Point2f> massCenters(contours.size());
-  cv::Point2f massCenter;
-  cv::Point2f prevMassCenter;
-
-  unsigned int counter = 0;
-
-  for (auto &contour : contours) {
-
-    // Getting the moments
-    cv::Moments yellowMoments = cv::moments(contour, false);
-    // Check to avoid dividing by zero
-    if (yellowMoments.m00 != 0) {
-      // Mass centers
-      massCenter = cv::Point2f(yellowMoments.m10 / yellowMoments.m00,
-                               yellowMoments.m01 / yellowMoments.m00);
-      // Do no add trash values
-      if (massCenter.y != 0 && massCenter.x != 0) {
-        // Prevent out of index out of bounds errors
-        if (counter > 0) {
-          // Compare the current mass center to the previous one to see if it is
-          // in the same cone
-          if (std::abs(massCenter.y - prevMassCenter.y) > CLUSTER_RANGE &&
-              std::abs(massCenter.x - prevMassCenter.x) > CLUSTER_RANGE) {
-            // Only add the mass center to our list if it is on a different cone
-            massCenters.push_back(massCenter);
-          }
-        } else {
-          // Initial loop
-          massCenters.push_back(massCenter);
-        }
-      }
-      // Remember previous massCenter
-      prevMassCenter = massCenter;
-    }
-    counter++;
-  }
-
-  return massCenters;
 }
 
 int32_t main(int32_t argc, char **argv) {
@@ -171,10 +79,6 @@ int32_t main(int32_t argc, char **argv) {
     const uint32_t HEIGHT{
         static_cast<uint32_t>(std::stoi(commandlineArguments["height"]))};
     const bool VERBOSE{commandlineArguments.count("verbose") != 0};
-
-    // define the color threshould here
-    const cv::Scalar lowerYellow(20, 100, 100), upperYellow(30, 255, 255);
-    const cv::Scalar lowerBlue(100, 150, 50), upperBlue(140, 255, 150);
 
     // Attach to the shared memory.
     std::unique_ptr<cluon::SharedMemory> sharedMemory{
@@ -262,16 +166,6 @@ int32_t main(int32_t argc, char **argv) {
       od4.dataTrigger(opendlv::proxy::PedalPositionReading::ID(),
                       onPedalRequest);
 
-      std::string model_path = "./clr.onnx";
-      Ort::Env env(ORT_LOGGING_LEVEL_WARNING, "InferenceEnv");
-      Ort::SessionOptions session_options;
-      Ort::Session session(env, model_path.c_str(), session_options);
-
-      std::vector<const char *> input_node_names = {"X"};
-      std::vector<const char *> output_node_names = {"variable"};
-
-      Ort::MemoryInfo memory_info =
-          Ort::MemoryInfo::CreateCpu(OrtDeviceAllocator, OrtMemTypeDefault);
 
       int frames_processed{0};
       int frames_within_threshold{0};
@@ -306,21 +200,11 @@ int32_t main(int32_t argc, char **argv) {
 
         sharedMemory->unlock();
 
-        // Get countours of the yellow cones
-        std::vector<std::vector<cv::Point>> yellowContours =
-            detectCones(img, lowerYellow, upperYellow, cv::Scalar(0, 255, 255));
-
-        // Get countours of the blue cones
-        std::vector<std::vector<cv::Point>> blueContours =
-            detectCones(img, lowerBlue, upperBlue, cv::Scalar(255, 0, 0));
-
         // Get mass centers of the yellow cones
-        std::vector<cv::Point2f> yellowMassCenters =
-            getMassCenters(yellowContours);
+        std::vector<cv::Point2f> yellowMassCenters = getYellowMassCenters(img);
 
         // Get mass centers of the blue cones
-        std::vector<cv::Point2f> blueMassCenters =
-            getMassCenters(blueContours);
+        std::vector<cv::Point2f> blueMassCenters = getBlueMassCenters(img);
 
         // For each mass center add a circle to the image
         for (auto massCenter : yellowMassCenters) {
@@ -396,28 +280,7 @@ int32_t main(int32_t argc, char **argv) {
             mag.magneticFieldX(),        mag.magneticFieldY(),
             mag.magneticFieldZ()};
 
-        std::vector<int64_t> input_shape = {1, input_data.size()};
-
-        Ort::Value input_tensor = Ort::Value::CreateTensor<float>(
-            memory_info, input_data.data(), input_data.size(),
-            input_shape.data(), input_shape.size());
-
-        std::vector<Ort::Value> input_tensors;
-        input_tensors.push_back(std::move(input_tensor));
-
-        auto output_tensors =
-            session.Run(Ort::RunOptions{nullptr}, input_node_names.data(),
-                        input_tensors.data(), input_tensors.size(),
-                        output_node_names.data(), 1);
-
-        float *output_data = output_tensors[0].GetTensorMutableData<float>();
-
-        float prediction = output_data[0];
-        if (prediction > 0.22) {
-          prediction = 0.22;
-        } else if (prediction < -0.22) {
-          prediction = -0.22;
-        }
+        float prediction = predict(input_data);
 
         if (gsr.groundSteering() != 0) {
           bool isWithinThreshold =

@@ -98,7 +98,11 @@ link_directories(/usr/onnxruntime/lib)
 
 ################################################################################
 # Create executable.
-add_executable(${PROJECT_NAME} ${CMAKE_CURRENT_SOURCE_DIR}/src/${PROJECT_NAME}.cpp)
+add_executable(${PROJECT_NAME} 
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/${PROJECT_NAME}.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/cone-detector.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/machine-learning.cpp
+)
 target_link_libraries(${PROJECT_NAME} ${LIBRARIES})
 
 # Add dependency to OpenDLV Standard Message Set.
