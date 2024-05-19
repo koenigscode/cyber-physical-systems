@@ -25,6 +25,7 @@ services:
     build:
       context: ./opencv-service
     ipc: host  
+    # platform: linux/amd64
     environment:
       - DISPLAY=${DISPLAY}
     volumes:
