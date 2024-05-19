@@ -1,5 +1,6 @@
 # 2024-group-22
 ![Pipeline Status Main](https://git.chalmers.se/courses/dit638/students/2024-group-22/badges/main/pipeline.svg)
+![ Component-diagrarm](https://git.chalmers.se/courses/dit638/students/2024-group-22/-/blob/21-add-component-diagram-to-wiki-and-readme/diagrams/component-diagram.png?ref_type=heads)
 
 
 ## Requirements
