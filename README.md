@@ -1,5 +1,13 @@
 # 2024-group-22
-![Pipeline Status Main](https://git.chalmers.se/courses/dit638/students/2024-group-22/badges/main/pipeline.svg)
+> This is a re-upload of a university GitLab project. Links might not work.
+
+As part of this university project, we received "live" sensor data + a video feed from a model car and had to predict the steering direction. During the project we realized that the video feed isn't as promising as the thought, and decided to only rely on sensor values.
+
+The ML model was a Random Forest Regressor, tuned with Grid Search, and stacked with Linear Regression. We experimented a lot, and this gave us the best results. Since the course's codebase was provided in C++, but we had felt that sci-kit learn was a good fit for us, we exported the model as an ONNX model, and then used that ONNX model in C++ for inference.
+
+The following component diagram shows the architecture: The Vehicle View component provides the video frames to the H264 Decoder Service, which puts them into shared memory, so the Steering Service (which does the predictions) can access them. The Steering Service (implemented in C++) uses the ONNX model, which was implemented/trained in Python using sk-learn.
+
+
 ![Component-diagarm](diagrams/component-diagram.png)
 
 
